@@ -32,13 +32,13 @@ char *FileExtension(char *filename) {
     return temp + 1;
 }
 
-void *MovetoDir(char *argv){
+void *MovetoDir(void *argv){
 	char *path, cwd[300], fileExt[300], temp1[300], fix[300]; 
 	path = (char *)argv;
 	
 	printf("path1 = %s\n", path);
 	
-	strcpy(cwd, "/home/adr01/Documents/SesiLab3/Soal3");
+	getcwd(cwd, sizeof(cwd));
 	
 	printf("cwd = %s\n", cwd);
 
@@ -82,10 +82,8 @@ void Folder(char *argv){
 	int it=0; 
 	struct dirent *dp;
    	DIR *dir = opendir(argv);
-
-	if (!dir) return;
 	
-	pthread_t thread[500];
+	pthread_t thread[1000];
 	
 	while ((dp = readdir(dir)) != NULL) {
 		char path[300];
@@ -102,10 +100,13 @@ void Folder(char *argv){
 		
 		it = it+1;
 		
-		pthread_create(&thread[it], NULL, MovetoDir,  (void *) path);
+		pthread_create(&thread[it], NULL, MovetoDir, (void *) path);
+		
+		
 	}
 	
-	for (int b = 0; b < it; b++) pthread_join(thread[b], NULL);
+	for (int c = 0; c < it; c++) pthread_join(thread[c], NULL);
+	
 
 	closedir(dir);
 }
