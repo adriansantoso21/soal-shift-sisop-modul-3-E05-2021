@@ -16,7 +16,7 @@
 #include <ctype.h>
 #include <pthread.h>
 
-int iter = 1, it=0;
+int iter = 1;
 
 void createDir(char *dir) {
 	struct stat st = {0};
@@ -33,14 +33,20 @@ char *FileExtension(char *filename) {
 }
 
 void *MovetoDir(char *argv){
-	char *path, *cwd, fileExt[300], temp1[300], fix[300]; 
+	char *path, cwd[300], fileExt[300], temp1[300], fix[300]; 
 	path = (char *)argv;
 	
-	getcwd(cwd, sizeof(cwd));
+	printf("path1 = %s\n", path);
+	
+	strcpy(cwd, "/home/adr01/Documents/SesiLab3/Soal3");
+	
+	printf("cwd = %s\n", cwd);
 
 	char* file = basename(path);
 
 	strcpy(temp1, FileExtension(file));
+	
+	printf("temp1 = %s\n", temp1);
 	
 	for(int i = 0; temp1[i]; i++){
 		fileExt[i] = tolower(temp1[i]);
@@ -50,10 +56,14 @@ void *MovetoDir(char *argv){
 	strcat(fix, "/");
 	strcat(fix,fileExt);
 	
+	printf("fileExt = %s\n", fix);
+	
 	createDir(fix);
 
 	strcat(fix, "/");
 	strcat(fix, file);
+	
+	printf("fileExt = %s\n", fix);
 	
 	int hasil = rename(path , fix); 
 
@@ -69,6 +79,7 @@ void *MovetoDir(char *argv){
 }
 
 void Folder(char *argv){
+	int it=0; 
 	struct dirent *dp;
    	DIR *dir = opendir(argv);
 
@@ -97,7 +108,6 @@ void Folder(char *argv){
 	for (int b = 0; b < it; b++) pthread_join(thread[b], NULL);
 
 	closedir(dir);
-	
 }
 
 int main(int argc, char* argv[])
@@ -125,7 +135,6 @@ int main(int argc, char* argv[])
 		
 	}
 	else {
-		printf("Maaf argumen salah\n");
-		
+		printf("Maaf argumen salah\n");	
 	}
 }
