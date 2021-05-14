@@ -16,7 +16,7 @@
 #include <ctype.h>
 #include <pthread.h>
 
-int iter = 1;
+int sukses, hasil;
 
 void createDir(char *dir) {
 	struct stat st = {0};
@@ -27,59 +27,35 @@ void createDir(char *dir) {
 }
 
 char *FileExtension(char *filename) {
-    char *temp = strrchr(filename, '.');
-    if(!temp || temp == filename) return "Unknown";
+    if(filename[0] == '.') return "Hidden"; 
+    char *temp = strchr(filename, '.');
+    if(!temp) return "Unknown";
+    if(temp[1] == '.') return "Hidden"; 
     return temp + 1;
 }
 
 void *MovetoDir(void *argv){
 	char *path, cwd[300], fileExt[300], temp1[300], fix[300]; 
-	path = (char *)argv;
 	
-	printf("path1 = %s\n", path);
-	
+	path = (char *)argv;	
 	getcwd(cwd, sizeof(cwd));
-	
-	printf("cwd = %s\n", cwd);
 
 	char* file = basename(path);
-
-	strcpy(temp1, FileExtension(file));
+	strcpy(fileExt, FileExtension(file));
 	
-	printf("temp1 = %s\n", temp1);
-	
-	for(int i = 0; temp1[i]; i++){
-		fileExt[i] = tolower(temp1[i]);
+	for(int i = 0; i < strlen(fileExt); i++){
+		fileExt[i] = tolower(fileExt[i]);
 	}
 	
-	strcat(fix, cwd);
-	strcat(fix, "/");
-	strcat(fix,fileExt);
-	
-	printf("fileExt = %s\n", fix);
-	
+	strcpy(fix,"");strcat(fix, cwd);strcat(fix, "/");strcat(fix,fileExt);
 	createDir(fix);
-
-	strcat(fix, "/");
-	strcat(fix, file);
+	strcat(fix, "/");strcat(fix, file);
 	
-	printf("fileExt = %s\n", fix);
-	
-	int hasil = rename(path , fix); 
-
-	if ( hasil == 0 ){
-		printf ( "File %d : Berhasil Dikategorikan\n",iter);
-		iter = iter+1;
-	}
-	    
-	else{
-		printf( "File %d : Sad, gagal :(\n", iter );
-		iter = iter + 1;
-	}	
+	hasil = rename(path , fix); 
 }
 
 void Folder(char *argv){
-	int it=0; 
+	int it=-1; 
 	struct dirent *dp;
    	DIR *dir = opendir(argv);
 	
@@ -87,54 +63,74 @@ void Folder(char *argv){
 	
 	while ((dp = readdir(dir)) != NULL) {
 		char path[300];
-		strcat(path, argv);
-		strcat(path, dp->d_name);
 		
-		if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) continue;
-		else if(strcmp(dp->d_name, __FILE__) == 0) continue;
-		
-		struct stat path_stat;
-		stat(path, &path_stat);
-
-		if(S_ISREG(path_stat.st_mode)) continue;
-		
-		it = it+1;
-		
-		pthread_create(&thread[it], NULL, MovetoDir, (void *) path);
-		
-		
+		if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
+			if(dp->d_type == DT_REG) {
+				
+				strcpy(path,"");strcat(path, argv);strcat(path, "/");strcat(path, dp->d_name);
+				pthread_create(&thread[++it], NULL, MovetoDir, (void *) path);
+				pthread_join(thread[it], NULL);
+			}
+			else if(dp->d_type == DT_DIR) {
+				struct dirent *dp0;
+   				DIR *dir0 = opendir(argv);
+				char path0[300];
+				strcpy(path0,"");strcat(path0, argv);strcat(path0, "/");strcat(path0, dp->d_name);
+				Folder(path0);
+   				closedir(dir0);
+			}
+		}
 	}
-	
-	for (int c = 0; c < it; c++) pthread_join(thread[c], NULL);
-	
 
 	closedir(dir);
 }
 
 int main(int argc, char* argv[])
 {
+	// Untuk file
 	if (strcmp(argv[1], "-f") == 0){
-		int a;
+		int a,itr = -1;
+		pthread_t tid[argc-2];
 		for(a=2; a<argc; a++){
-			MovetoDir(argv[a]);
+			pthread_create(&tid[++itr], NULL, MovetoDir, (void *) argv[a]);
+			
+			if ( hasil == 0 ){
+				printf ( "File %d : Berhasil Dikategorikan\n",a-1);
+			}
+			    
+			else{
+				printf( "File %d : Sad, gagal :(\n", a-1 );
+			}
 		}
+		for(int a=0; a<=itr; a++) pthread_join(tid[a],NULL);
 	
 	}
+	
+	// Untuk direktori
 	else if(strcmp(argv[1], "-d") == 0){
 		if(argc > 3){
 			printf("Maaf hanya boleh 1 direktori\n");
 		}
 		else {
-			Folder(argv[2]);
+			if( ENOENT != errno ) {
+				Folder(argv[2]);
+				printf("Direktori sukses disimpan!\n");
+			}
+			else {
+				printf("Yah, gagal disimpan :(\n");
+			}
 		}
 	}
+	
+	// Untuk file dalam current directory
 	else if (strcmp(argv[1], "*") == 0) {
 		char cwd[300];
 		getcwd(cwd, sizeof(cwd));
-		strcat(cwd, "/");
 		Folder(cwd);
 		
 	}
+	
+	// JIka semua argumen tidak ada yang memenuhi
 	else {
 		printf("Maaf argumen salah\n");	
 	}
