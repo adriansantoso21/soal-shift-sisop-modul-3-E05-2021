@@ -6,9 +6,9 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-int arr[4][6] = {0};
+unsigned long long arr[4][6] = {0};
 
-int fact(int n, int lim)
+unsigned long long fact(int n, int lim)
 {
     if (n == lim)
         return 1;
@@ -104,8 +104,7 @@ int main()
     {
         for (j = 0; j < c1; j++)
         {
-            
-            printf("%-3d ", arr[i][j]);
+            printf("%-3llu ", arr[i][j]);
         }
         printf("\n");
     }
