@@ -43,21 +43,15 @@ void moveFiles(char file_path[], char nama_file[]){
 	char line[10000], all[10000];
 	memset(line, 0, 10000);memset(all, 0, 10000);
 	
-	printf("ini file_path : %s\n", file_path);
-	printf("ini nama_file : %s\n", nama_file);
-	
 	file = fopen(file_path, "r");
-
 	
-	
-	//printf("ini isi file : %s\n", all);
-	
-	// Menulis ke dalam folder FILES
+	// Membuat folder FILES
   	char pathtujuan[1000];
   	memset(pathtujuan, 0, 1000);
   	strcpy(pathtujuan, "/home/adr01/Documents/SesiLab3/Soal1/Server/FILES/");
   	strcat(pathtujuan, nama_file);
   	
+  	// Menuliskan isi folder
 	FILE *fp;
 	fp = fopen (pathtujuan, "w");
 	char temp = fgetc(file);
@@ -65,7 +59,6 @@ void moveFiles(char file_path[], char nama_file[]){
 		fputc(temp, fp);
 		temp = fgetc(file);
 	}
-	//fprintf(fp, "%s", all);
 	fclose(file);
 	fclose(fp);
 }
@@ -128,6 +121,9 @@ void *multiple_connection (void *socket_desc)
 	int read_size;
 	bool status;
 	memset( message, 0, strlen(message) );
+	if(masuk) send(sock , "penuh" , 10 , 0 );
+	else send(sock , "kosong" , 10 , 0 );
+	memset( message, 0, strlen(message) );
 	
 	// Menerima pesan dari user apakah dia login / register
 	while( (read_size = recv(sock , message , 2000 , 0)) > 0 )
@@ -151,6 +147,7 @@ void *multiple_connection (void *socket_desc)
 			// Jika pilihan register
 			if(message[0] == 'r'){
 				register_user(id_user, pass_user);
+				memset( message, 0, strlen(message) );
 				strcpy(message, "Proses register berhasil\n");
 				send(sock , message , strlen(message) , 0 );
 			}
@@ -161,13 +158,11 @@ void *multiple_connection (void *socket_desc)
 				
 				if(status) send(sock , "true" , 1000 , 0 );
 				else send(sock , "false" , 1000 , 0 );
-
-				
-				//while (masuk);
 				
 				memset( message, 0, strlen(message) );
 				recv(sock , message , 2000 , 0);
 				if(message[0] == 'a') {
+				
 					// Mengambil data publisher, tahun, path
 					int it1=-1, it2=-1, it3=-1, d, e, f;
 					char publisher[1000], tahun[1000], path[1000], namaFile[1000], fileExt[1000], temp[1000];
@@ -193,8 +188,8 @@ void *multiple_connection (void *socket_desc)
 					++jumlah_buku;
 					
 					strcpy(client_buku[jumlah_buku].publisher, publisher);
-					strcpy(client_buku[jumlah_buku].path, tahun);
-					strcpy(client_buku[jumlah_buku].tahun, path);
+					strcpy(client_buku[jumlah_buku].path, path);
+					strcpy(client_buku[jumlah_buku].tahun, tahun);
 					strcpy(client_buku[jumlah_buku].nama, namaFile);
 					strcpy(client_buku[jumlah_buku].extension, fileExt);
 					
@@ -205,17 +200,54 @@ void *multiple_connection (void *socket_desc)
 				
 				// Jika pilihan see
 				if(message[0] == 's') {
-
+					if(jumlah_buku == -1) send(sock , "File tidak ada yang ditampilkan\n" , 1000 , 0 );
+					else {
+						char publisher[1000], tahun[1000], path[1000], namaFile[1000], fileExt[1000], temp[1000];
+						for(int a=0; a<=jumlah_buku; a++){
+							memset( namaFile, 0, strlen(namaFile) );
+							memset( publisher, 0, strlen(publisher) );
+							memset( tahun, 0, strlen(tahun) );
+							memset( fileExt, 0, strlen(fileExt) );
+							memset( path, 0, strlen(path) );
+							
+							strcpy(namaFile, "Nama: ");strcat(namaFile, client_buku[a].nama);strcat(namaFile, "\n");
+							
+							strcpy(publisher, "Publisher: ");strcat(publisher, client_buku[a].publisher);strcat(publisher, "\n");
+							
+							strcpy(tahun, "Tahun publishing: ");strcat(tahun, client_buku[a].tahun);strcat(tahun, "\n");
+							
+							strcpy(fileExt, "Ekstensi file: ");strcat(fileExt, client_buku[a].extension);strcat(fileExt, "\n");
+							
+							strcpy(path, "Filepath: ");strcat(path, client_buku[a].path);strcat(path, "\n");
+							
+							printf("Ini nama : %s\n", namaFile);
+							printf("Ini publisher : %s\n", publisher);
+							printf("Ini tahun : %s\n", tahun);
+							printf("Ini ext : %s\n", fileExt);
+							printf("path : %s\n", path);
+							
+							send(sock , namaFile , 1000 , 0 );
+							send(sock , publisher , 1000 , 0 );
+							send(sock , tahun , 1000 , 0 );
+							send(sock , fileExt , 1000 , 0 );
+							send(sock , path , 1000 , 0 );
+							send(sock , "\n" , 1000 , 0 );
+						}
+						send(sock , "File berhasil ditampilkan\n" , 1000 , 0 );
+					}
 				}
 			}
 			
 			memset( message, 0, strlen(message) );
 		}
+		if(strcmp(message, "exit")){
+			masuk = 0;
+			fflush(stdout);
+		}
 	}
 	
 	if(read_size == 0)
 	{
-		masuk = 0;
 		puts("Client disconnected");
 		fflush(stdout);
 	}
