@@ -97,7 +97,7 @@ int main(int argc, char const *argv[]) {
 					after_login:;
 					memset( perintah2, 0, strlen(perintah2) );
 					printf("\nSelamat datang di aplikasi buku\n");
-					printf("Perintah :\n0.exit\n1. add\n4. see\n");
+					printf("Perintah :\n0. exit\n1. add\n2. download\n3. delete\n4. see\n5. find\n");
 					printf("Masukkan pilihan : ");
 					getchar();
 					scanf("%s", perintah2);
@@ -129,11 +129,43 @@ int main(int argc, char const *argv[]) {
 						
 						strcat(c_message, filepath);
 						
-						printf("ini message add : %s\n", c_message);
-						
 						send(sock, c_message, strlen(c_message), 0);
 						recv(sock , c_message , 1000 , 0);
-						printf("ini c_message : %s\n", c_message);
+						printf("%s\n", c_message);
+						goto after_login;
+					}
+					
+					if(strcmp(perintah2, "download") == 0 ) {
+						char temp[1000],c_message[1000];
+						strcpy(c_message, "d");
+						printf("Masukkan nama file : ");
+						getchar();
+						scanf("%s", temp);
+						strcat(c_message, temp);
+						
+						send(sock, c_message, strlen(c_message), 0);
+						recv(sock , c_message , strlen(c_message) , 0);
+						
+						if(strcmp(c_message, "ok") == 0) printf("File berhasil di download\n");
+						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil di download\n");
+						
+						goto after_login;
+					}
+					
+					if(strcmp(perintah2, "delete") == 0 ) {
+						char temp[1000],c_message[1000];
+						strcpy(c_message, "h");
+						printf("Masukkan nama file : ");
+						getchar();
+						scanf("%s", temp);
+						strcat(c_message, temp);
+						
+						send(sock, c_message, strlen(c_message), 0);
+						recv(sock , c_message , strlen(c_message) , 0);
+						
+						if(strcmp(c_message, "ok") == 0) printf("File berhasil di delete\n");
+						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil di delete\n");
+						
 						goto after_login;
 					}
 					
@@ -142,9 +174,9 @@ int main(int argc, char const *argv[]) {
 						memset(c_message, 0, 1000);
 						strcpy(c_message, "s");
 						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , 1000 , 0);
+						recv(sock , c_message , strlen(c_message) , 0);
 						
-						while( (strcmp(c_message,"File berhasil ditampilkan") != 0) && (strcmp(c_message,"File tidak ada yang ditampilkan") != 0) ) {
+						while( (strcmp(c_message,"File berhasil ditampilkan\n") != 0) && (strcmp(c_message,"File tidak ada yang ditampilkan\n") != 0) ) {
 							printf("%s",c_message);
 							memset(c_message, 0, 1000);
 							recv(sock , c_message , 1000 , 0);
@@ -153,6 +185,31 @@ int main(int argc, char const *argv[]) {
 						goto after_login;
 					}
 					
+					if(strcmp(perintah2, "find") == 0 ) {
+						char temp[1000],c_message[1000];
+						strcpy(c_message, "f");
+						printf("Masukkan nama file : ");
+						getchar();
+						scanf("%s", temp);
+						strcat(c_message, temp);
+						
+						printf("ini c_message: %s\n", c_message);
+						
+						send(sock, c_message, strlen(c_message), 0);
+						recv(sock , c_message , strlen(c_message) , 0);
+						
+						while( (strcmp(c_message,"ok") != 0) && (strcmp(c_message,"no") != 0) && (strcmp(c_message,"kosong") != 0) ) {
+							printf("%s",c_message);
+							memset(c_message, 0, 1000);
+							recv(sock , c_message , 1000 , 0);
+						}
+						
+						if(strcmp(c_message, "ok") == 0) printf("File berhasil ditemukan\n");
+						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil ditemukan\n");
+						else if(strcmp(c_message, "kosong") == 0) printf("File masih belum ada\n");
+						
+						goto after_login;
+					}
 				}
 				
 			}
