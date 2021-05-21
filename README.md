@@ -390,3 +390,192 @@ void main()
 Kendala yang dialami:
 1. Mengalami kesulitan saat mengimplementasikan thread dan shared memory saat mengerjakan soal 2a dan 2b.
 2. Beberapa error terjadi saat mengerjakan soal 2c karena salah saat mengimplementasikan pipe.
+
+## Soal nomor 3
+Seorang mahasiswa bernama Alex sedang mengalami masa gabut. Di saat masa gabutnya, ia memikirkan untuk merapikan sejumlah file yang ada di laptopnya. Karena jumlah filenya terlalu banyak, Alex meminta saran ke Ayub. Ayub menyarankan untuk membuat sebuah program C agar file-file dapat dikategorikan. Program ini akan memindahkan file sesuai ekstensinya ke dalam folder sesuai ekstensinya yang folder hasilnya terdapat di working directory ketika program kategori tersebut dijalankan.
+
+**a.** Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna.
+```
+File 1 : Berhasil Dikategorikan (jika berhasil)
+File 2 : Sad, gagal :( (jika gagal)
+File 3 : Berhasil Dikategorikan
+```
+**b.** Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin.  
+```$ ./soal3 -d /path/to/directory/```  
+Perintah di atas akan mengkategorikan file di /path/to/directory, lalu hasilnya
+akan disimpan di working directory dimana program C tersebut berjalan (hasil kategori filenya bukan di /path/to/directory).
+Output yang dikeluarkan adalah seperti ini :
+```
+Ketentuan:
+Jika berhasil, print “Direktori sukses disimpan!”
+Jika gagal, print “Yah, gagal disimpan :(“
+```
+**c.** Selain menerima opsi-opsi di atas, program ini menerima opsi *, contohnya ada di bawah ini:  
+```$ ./soal3 \*```  
+Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
+
+**d.** Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+
+**e.** Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
+
+Catatan: 
+- Kategori folder tidak dibuat secara manual, harus melalui program C
+- Program ini tidak case sensitive. Contoh: JPG dan jpg adalah sama
+- Jika ekstensi lebih dari satu (contoh “.tar.gz”) maka akan masuk ke folder dengan titik terdepan (contoh “tar.gz”)
+- Dilarang juga menggunakan fork-exec dan system()
+- Bagian b dan c berlaku rekursif
+
+## Penjelasan penyelesaian soal
+### 3a
+Pertama, kita perlu mengambil perintah dari argumen. Kemudian, untuk tiap file nya kita membuat thread. Kemudian, kita memanggil fungsi MovetoDir. Jika hasil bernilai 0 maka file berhasil dikategorikan selain itu file gagal dikategorikan. Terakhir, gabungkan semua thread dengan pthread_join.
+```c
+if (strcmp(argv[1], "-f") == 0){
+		int a,itr = -1;
+		pthread_t tid[argc-2];
+		for(a=2; a<argc; a++){
+			pthread_create(&tid[++itr], NULL, MovetoDir, (void *) argv[a]);
+			
+			if ( hasil == 0 ){
+				printf ( "File %d : Berhasil Dikategorikan\n",a-1);
+			}
+			    
+			else{
+				printf( "File %d : Sad, gagal :(\n", a-1 );
+			}
+		}
+		for(int a=0; a<=itr; a++) pthread_join(tid[a],NULL);
+	
+}
+```  
+
+Di fungsi MovetoDir, kita menerima parameter berupa path dari file. Kemudian, kita mengambil path dari direktori saat ini dengan ```getcwd()```. Setelah itu, kita dapatkan nama file nya dengan memanggil fungsi ```basename()```. ```FileExtension()``` digunakan untuk membuat nama folder sesuai ekstensi dari file. Karena persyaratan dari soal meminta tidak case sensitive sehingga kita membuat semua nama ekstensi menjadi huruf kecil dengan fungsi ```toLower()```. Kemudian, kita membuat direktori dengan ```createDir()```. Terakhir, kita memindahkan file ke dalam direktori yang baru saja dibuat dengan ```rename()```.
+```c
+void *MovetoDir(void *argv){
+	char *path, cwd[300], fileExt[300], temp1[300], fix[300]; 
+	
+	path = (char *)argv;	
+	getcwd(cwd, sizeof(cwd));
+
+	char* file = basename(path);
+	strcpy(fileExt, FileExtension(file));
+	
+	for(int i = 0; i < strlen(fileExt); i++){
+		fileExt[i] = tolower(fileExt[i]);
+	}
+	
+	strcpy(fix,"");strcat(fix, cwd);strcat(fix, "/");strcat(fix,fileExt);
+	createDir(fix);
+	strcat(fix, "/");strcat(fix, file);
+	
+	hasil = rename(path , fix); 
+}
+```  
+
+FileExtension digunakan untuk menentukan ekstensi file. Jika karakter pertama berupa "." maka tipe nya adalah hidden. Fungsi ```strchr()``` digunakan untuk mengembalikan posisi karakter ketika suatu karakter pertama kali ditemukan. Jika null, maka tipe nya unknown sedangkan jika ditemukan maka kembalikan posisi karakter + 1.
+```c
+char *FileExtension(char *filename) {
+    if(filename[0] == '.') return "Hidden"; 
+    char *temp = strchr(filename, '.');
+    if(!temp) return "Unknown";
+    return temp + 1;
+}
+```  
+
+createDir digunakan untuk membuat folder dengan memasukkan direktori dari folder yang ingin dibuat
+```c
+void createDir(char *dir) {
+	struct stat st = {0};
+
+	if (stat(dir, &st) == -1) {
+		mkdir(dir, 0777);
+	}
+}
+```
+
+### 3b
+Pertama, kita perlu mengambil perintah dari argumen. Jika argumen lebih dari 3 tidak bisa karena hanya boleh memasukkan 1 direktori. Jika tidak error, maka menampilkan pesan "Direktori sukses disimpan" tetapi jika error maka mencetak "Yah, gagal disimpan". Kita memanggil fungsi ```Folder``` untuk mengkategorikan direktori.
+```c
+else if(strcmp(argv[1], "-d") == 0){
+		if(argc > 3){
+			printf("Maaf hanya boleh 1 direktori\n");
+		}
+		else {
+			if( ENOENT != errno ) {
+				Folder(argv[2]);
+				printf("Direktori sukses disimpan!\n");
+			}
+			else {
+				printf("Yah, gagal disimpan :(\n");
+			}
+		}
+	}
+```
+
+Pertama, kita membuka folder dari argumen yang dimasukkan user. Kemudian kita membaca satu per satu isi dari folder selama tidak NULL. Jika tipe dari item adalah DT_REG / file maka kita bisa langsung mengkategorikan dengan fungsi MovetoDir ( langkah nya sama dengan soal 3a ) dengan membuat path dari file nya terlebih dahulu. Setiap membuat file, kita membuat thread untuk tiap file nya. Tetapi jika tipe dari item adalah DT_DIR / folder maka kita perlu memanggil fungsi Folder kembali. Kita membuka folder nya terlebih dahulu dan panggil kembali fungsi ```Folder()``` dengan parameter path dari folder yang ingin dibuka 
+```c
+void Folder(char *argv){
+	int it=-1; 
+	struct dirent *dp;
+   	DIR *dir = opendir(argv);
+	
+	pthread_t thread[1000];
+	
+	while ((dp = readdir(dir)) != NULL) {
+		char path[300];
+		
+		if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
+			if(dp->d_type == DT_REG) {
+				
+				strcpy(path,"");strcat(path, argv);strcat(path, "/");strcat(path, dp->d_name);
+				pthread_create(&thread[++it], NULL, MovetoDir, (void *) path);
+				pthread_join(thread[it], NULL);
+			}
+			else if(dp->d_type == DT_DIR) {
+				struct dirent *dp0;
+   				DIR *dir0 = opendir(argv);
+				char path0[300];
+				strcpy(path0,"");strcat(path0, argv);strcat(path0, "/");strcat(path0, dp->d_name);
+				Folder(path0);
+   				closedir(dir0);
+			}
+		}
+	}
+
+	closedir(dir);
+}
+```
+
+### 3c
+Pertama, kita perlu mengambil perintah dari argumen. Karena ingin mengkategorikan isi dari current kategori maka kita kirim parameter berupa direktori saat ini dengan fungsi ```getcwd()```. Kemudian, kita panggil fungsi ```Folder()``` dan untuk sisa cara kerjanya sama dengan soal 3b.
+```c
+else if (strcmp(argv[1], "*") == 0) {
+		char cwd[300];
+		getcwd(cwd, sizeof(cwd));
+		Folder(cwd);
+		
+	}
+```
+
+### 3d
+Untuk persyaratan 3d, terdapat pada fungsi FileExtension. Jika pada fungsi ```strchr()``` bernilai null / tidak memiliki ekstensi maka dikembalikan string "Unknown" dan jika karakter pertama berupa "." maka itu menunjukkan bahwa ia file hidden dan dikembalikan string "Hidden".
+```c
+char *FileExtension(char *filename) {
+    if(filename[0] == '.') return "Hidden"; 
+    char *temp = strchr(filename, '.');
+    if(!temp) return "Unknown";
+    return temp + 1;
+}
+```  
+
+### 3e
+Untuk persyaratan 3e, setiap file yang akan dioperasikan harus menggunakan thread. Maka kita bisa buat dengan code di bawah ini
+```c
+pthread_t thread[1000];
+pthread_create(&thread[++it], NULL, MovetoDir, (void *) path);
+pthread_join(thread[it], NULL);
+```  
+
+Kendala :
+- Kesulitan ketika soal b dan c berlaku rekursif
+- Kesulitan ketika penamaan folder saat nama ekstensi file lebih dari 1
+- Kesulitan saat mengoperasikan tiap thread untuk masing - masing file
