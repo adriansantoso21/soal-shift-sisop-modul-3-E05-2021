@@ -129,7 +129,7 @@ void command(char *msg, int client_fd) {
         // send: download [sesuatu] 
         send(client_fd, msg, strlen(msg), 0);
 
-        // read " "
+        // read " " (spy ga ngebug send 2x sekaligus)
         memset(buffer, 0, sizeof(buffer));
         read(client_fd, buffer, 1024);
 

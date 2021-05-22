@@ -170,27 +170,24 @@ void registerUser(char *path, int socket) {
     FILE *fp = fopen(path, "a+");
 
     char username[100], password[100];
-    // printf("Username:\n");
+
     strcpy(msg, "Username:\n");
     send(socket, msg, strlen(msg), 0);
-    // scanf("%s", username);
+    
     memset(username, 0, sizeof(username));
     read(socket, username, sizeof(username));
 
-    // printf("Password:\n");
     strcpy(msg, "Password:\n");
     send(socket, msg, strlen(msg), 0);
-    // scanf("%s", password);
+
     memset(password, 0, sizeof(password));
     read(socket, password, sizeof(password));
 
     if(!_isUserExist(username, path)) {
         fprintf(fp, "%s:%s\n", username, password);
-        // printf("Account registered.\n");
         strcpy(msg, "Account registered.\n");
         send(socket, msg, strlen(msg), 0);
     } else {
-        // printf("Username sudah ada.\n");
         strcpy(msg, "Username sudah ada.\n");
         send(socket, msg, strlen(msg), 0);
     }
@@ -204,17 +201,16 @@ char *loginUser(char *path, int socket) {
 
     char username[100], password[100];
     static char userpass[255];
-    // printf("Username:\n");
+    
     strcpy(msg, "Username:\n");
     send(socket, msg, strlen(msg), 0);
-    // scanf("%s", username);
+    
     memset(username, 0, sizeof(username));
     read(socket, username, sizeof(username));
 
-    // printf("Password:\n");
     strcpy(msg, "Password:\n");
     send(socket, msg, strlen(msg), 0);
-    // scanf("%s", password);
+    
     memset(password, 0, sizeof(password));
     read(socket, password, sizeof(password));
 
@@ -225,7 +221,6 @@ char *loginUser(char *path, int socket) {
     while(iter--) {
         fscanf(fp, "%[^\n]s", buff);
         if(strcmp(userpass, buff) == 0) {
-            // printf("Login berhasil.\n");
             strcpy(msg, "Login berhasil.\n");
             send(socket, msg, strlen(msg), 0);
             fclose(fp);
@@ -234,7 +229,6 @@ char *loginUser(char *path, int socket) {
         getc(fp);
     }
 
-    // printf("Login gagal.\n");
     strcpy(msg, "Login gagal.\n");
     send(socket, msg, strlen(msg), 0);
     fclose(fp);
@@ -282,24 +276,18 @@ int copyFile(char *pathIn, char *pathOut) {
 // butuh: _getFileName(), _getFilenameExt(), copyFile()
 void addFiles(char *tsvPath, char* userpass, int socket) {
     char pub[100], thn[10], fpath[255];
-    // printf("Publisher: ");
     strcpy(msg, "Publisher: ");
     send(socket, msg, strlen(msg), 0);
-    // scanf(" %[^\n]s", pub);
     memset(pub, 0, sizeof(pub));
     read(socket, pub, sizeof(pub));
 
-    // printf("Tahun Publikasi: ");
     strcpy(msg, "Tahun Publikasi: ");
     send(socket, msg, strlen(msg), 0);
-    // scanf("%s", thn);
     memset(thn, 0, sizeof(thn));
     read(socket, thn, sizeof(thn));
 
-    // printf("Filepath: ");
     strcpy(msg, "Filepath: ");
     send(socket, msg, strlen(msg), 0);
-    // scanf(" %[^\n]s", fpath);
     memset(fpath, 0, sizeof(fpath));
     read(socket, fpath, sizeof(fpath));
 
@@ -311,12 +299,12 @@ void addFiles(char *tsvPath, char* userpass, int socket) {
     char fserverPath[255];
     sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
     if(_isFileExists(fserverPath) == 1) {
-        //file sudah ada di server
+        // file sudah ada di server
         strcpy(msg, "file sudah ada di server.\n");
         send(socket, msg, strlen(msg), 0);
         return;
     } else if(copyFile(fpath, fserverPath) == 0) {
-        // printf("file tidak ada di client.\n");
+        // file tidak ada di client
         strcpy(msg, "file tidak ada di client.\n");
         send(socket, msg, strlen(msg), 0);
         return;
@@ -326,7 +314,6 @@ void addFiles(char *tsvPath, char* userpass, int socket) {
     FILE *fp = fopen(tsvPath, "a+");
     fprintf(fp, "%s\t%s\t%s\t%s\t%s\n", fname, pub, thn, fext, fpath);
 
-    // printf("%s berhasil ditambahkan\n", fname);
     sprintf(msg, "file berhasil ditambahkan.\n");
     send(socket, msg, strlen(msg), 0);
     fclose(fp);
@@ -341,21 +328,18 @@ void addFiles(char *tsvPath, char* userpass, int socket) {
 
 // butuh: copyFile()
 void downloadFile(char *fname, int socket) {
-    // send " "
+    // send " " (supaya ga ngebug karena read 2x sekaligus)
     send(socket, " ", strlen(" "), 0);
 
     char fserverPath[255] = "";
     sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
 
     char fclientPath[255] = "";
-    // getcwd(fclientPath, sizeof(fclientPath));
-    // sprintf(fclientPath, "%s/%s", fclientPath, fname);
     memset(fclientPath, 0, sizeof(fclientPath));
     read(socket, fclientPath, sizeof(fclientPath));
     sprintf(fclientPath, "%s/%s", fclientPath, fname);
 
     if(copyFile(fserverPath, fclientPath) == 0) {
-        // printf("file tidak ada di server.\n");
         strcpy(msg, "file tidak ada di server\n");
         send(socket, msg, strlen(msg), 0);
     } else {
@@ -373,7 +357,6 @@ void deleteFile(char *fname, char* login, int socket) {
     sprintf(tsvPath, "%s/%s", cwd, "files.tsv");
 
     if(!_isFileExists(fPath)) {
-        // printf("file tidak ada.\n");
         strcpy(msg, "file tidak ada.\n");
         send(socket, msg, strlen(msg), 0);
         return; // return jika tidak ada
@@ -410,11 +393,9 @@ void deleteFile(char *fname, char* login, int socket) {
     sprintf(newname, "%s/%s/old-%s", cwd, "FILES", fname);
 
     if(rename(oldname, newname) == 0) {
-        // printf("delete/rename berhasil\n");
         strcpy(msg, "delete/rename berhasil.\n");
         send(socket, msg, strlen(msg), 0);
     } else {
-        // printf("delete/rename gagal\n");
         strcpy(msg, "delete/rename gagal.\n");
         send(socket, msg, strlen(msg), 0);
     }
@@ -464,7 +445,7 @@ void seeTsv(char *tsvPath, int socket) {
     }
     fclose(fp);
 
-    // printf("%s", tsv); // semuanya disini
+    // semuanya di array tsv
     if(strcmp(tsv, "") == 0) {
         strcpy(msg, "tidak ditemukan hasil.\n");
         send(socket, msg, strlen(msg), 0);
@@ -516,7 +497,7 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
     }
     fclose(fp);
 
-    // printf("%s", tsv); // semuanya disini
+    // semuanya di array tsv
     if(strcmp(tsv, "") == 0) {
         strcpy(msg, "tidak ditemukan hasil.\n");
         send(socket, msg, strlen(msg), 0);
@@ -544,7 +525,6 @@ void* main_service(void *arg) {
     bool exit = false;
 
     while(!exit) {
-        // scanf("%s", req);
         memset(req, 0, sizeof(req));
         read(socket, req, sizeof(req));
 
@@ -562,7 +542,6 @@ void* main_service(void *arg) {
 
             while(login != NULL && !exit) {
                 char longreq[100];
-                // scanf(" %[^\n]s", longreq);
                 memset(longreq, 0, sizeof(longreq));
                 read(socket, longreq, sizeof(longreq));
                 strcpy(req, getFirstWord(longreq));
