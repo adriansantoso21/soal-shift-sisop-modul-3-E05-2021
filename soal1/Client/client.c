@@ -5,224 +5,188 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <stdbool.h>
 #define PORT 8080
-  
-int main(int argc, char const *argv[]) {
-    struct sockaddr_in address;
-    int sock = 0, valread, perintah;
-    struct sockaddr_in serv_addr;
-    char server_reply[2000], id_pass[1000], id[1000], pass[1000], message[1000], perintah2[1000];
-    char buffer[1024] = {0};
-    
-    // Create socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Socket creation error \n");
-        return -1;
+
+char buffer[1024];
+char msg[1024];
+bool isLogin = false;
+
+int createClientSocket(struct sockaddr_in *address, struct sockaddr_in *serv_addr) {
+    int fd;
+
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
-  
-    memset(&serv_addr, '0', sizeof(serv_addr));
-  
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
-      
-    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0) {
+
+    memset(serv_addr, '0', sizeof(*serv_addr));
+    serv_addr->sin_family = AF_INET;
+    serv_addr->sin_port = htons(PORT);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &(serv_addr->sin_addr)) <= 0)
+    {
         printf("\nInvalid address/ Address not supported \n");
         return -1;
     }
-
-	// Connect to remote server  
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(fd, (struct sockaddr *)serv_addr, sizeof(*serv_addr)) < 0)
+    {
         printf("\nConnection Failed \n");
         return -1;
     }
+    return fd;
+}
+
+const char *getFirstWord(char *str) {
+    int i;
+    char word[255] = "";
+    for(i = 0; i < strlen(str); i++) {
+        if(str[i] == ' ') break;
+        word[i] = str[i];
+    }
+    char *wordptr = word;
+    return wordptr;
+}
+
+const char *getAllNextWord(char *str) {
+    int x = 0, isSpaceExist = 0;
+    while(x < strlen(str)) {
+        if(str[x] == ' ') {
+            isSpaceExist = 1;
+            break;
+        }
+        x++;
+    }
+    if(!isSpaceExist) return NULL;
+
+    int i = 0, j = 0;
+    char word[255] = "";
+
+    while(str[i++] != ' ');
+
+    while(i < strlen(str)) {
+        word[j] = str[i];
+        i++;
+        j++;
+    }
+
+    if(strcmp(word, "") != 0) {
+        char *wordptr = word;
+        return wordptr;
+    } else {
+        return NULL;
+    }
+}
+
+void command(char *msg, int client_fd) {
+    int iter;
+    if(!isLogin && (strcmp(msg, "login") == 0 || strcmp(msg, "register") == 0)) {
+        iter = 3;
+        
+        // send: login / register
+        send(client_fd, msg, strlen(msg), 0);
+        
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+        printf("%s", buffer);
+
+        //loop = 3-1
+        while(--iter) {
+            scanf(" %[^\n]s", msg);
+            send(client_fd, msg, strlen(msg), 0);
+
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+
+            if(strcmp(buffer, "Login berhasil.\n") == 0)  {
+                isLogin = true;
+            }
+        }
+    }
+    else if(isLogin && strcmp(msg, "add") == 0) {
+        iter = 4;
+        
+        // send: add
+        send(client_fd, msg, strlen(msg), 0);
+        
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+        printf("%s", buffer);
+
+        while(--iter) {
+            scanf(" %[^\n]s", msg);
+            send(client_fd, msg, strlen(msg), 0);
+
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+        }
+    }
+    else if(isLogin && strcmp(getFirstWord(msg), "download") == 0 && getAllNextWord(msg) != NULL) {
+        // send: download [sesuatu] 
+        send(client_fd, msg, strlen(msg), 0);
+
+        // read " "
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+
+        // send: path client
+        char cwd[255];
+        getcwd(cwd, sizeof(cwd));
+        send(client_fd, cwd, strlen(cwd), 0);
+
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+        printf("%s", buffer);
+    }
+    else if(isLogin && strcmp(getFirstWord(msg), "delete") == 0 && getAllNextWord(msg) != NULL) {
+        // send: delete [sesuatu] 
+        send(client_fd, msg, strlen(msg), 0);
+
+        // delete gagal/berhasil ?
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+        printf("%s", buffer);
+    }
+    else if(isLogin && strcmp(msg, "see") == 0 || (strcmp(getFirstWord(msg), "find") == 0 && getAllNextWord(msg) != NULL)) {
+        // send: see / find [sesuatu] 
+        send(client_fd, msg, strlen(msg), 0);
+
+        // list hasil see / find
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+        printf("%s", buffer);
+    }
+    else if(strcmp(msg, "exit") == 0) {
+        // send: see / find [sesuatu] 
+        send(client_fd, msg, strlen(msg), 0);
+    }
+    else {
+        printf("command salah.\n");
+    }
+}
+
+int main(int argc, char const *argv[]) {
+    struct sockaddr_in address, serv_addr;
+    int client_fd = createClientSocket(&address, &serv_addr);
+
+    // cek server penuh / kosong
+    memset(buffer, 0, sizeof(buffer));
+    read(client_fd, buffer, 1024);
+
+    if(strcmp(buffer, "server_penuh") == 0) {
+        printf("Mohon maaf server penuh\n");
+        return 0;
+    }
     
-    char status[100];
-	recv(sock , status , 100 , 0);
-	if(strcmp(status, "penuh")==0){
-		printf("Mohon maaf telah ada user yang login. Tunggu lagi nanti\n");
-		memset(status, 0, strlen(status));
-	}
-	else{
-		    while(1)
-		{
-			first_login:;
-			printf("Perintah :\n 0. register\n 1. login\n");
-			printf("Masukkan perintah:");
-			memset( message, 0, strlen(message) );
-			memset( id_pass, 0, strlen(id_pass) );
-			scanf("%s", message);
-			
-			if(strcmp(message, "register")== 0 ) {
-				strcpy(id_pass, "r");
-				printf("Masukkan id : ");
-				getchar();
-				scanf("%s", id);
-				strcat(id_pass, id);
-				strcat(id_pass, "\t");
-				printf("Masukkan password : ");
-				getchar();
-				scanf("%s", pass);
-				strcat(id_pass, pass);
-				
-				send(sock, id_pass, strlen(id_pass), 0);
-				recv(sock , message , 1000 , 0);
-				printf("%s\n", message);
-				
-				goto first_login;
-			}
-			else if (strcmp(message, "login")== 0) {
-				
-				
-				strcpy(id_pass, "l");
-				printf("Masukkan id : ");
-				getchar();
-				scanf("%s", id);
-				strcat(id_pass, id);
-				strcat(id_pass, "\t");
-				printf("Masukkan password : ");
-				getchar();
-				scanf("%s", pass);
-				strcat(id_pass, pass);
-				
-				send(sock, id_pass, strlen(id_pass), 0);
-				recv(sock , message , 1000 , 0);
-				
-				if(strcmp(message, "false")== 0 ){
-					printf("Proses login gagal\n");
-					goto first_login;
-				}
-				else if(strcmp(message, "true")== 0 ){
-					printf("Proses login sukses\n");
-					
-					after_login:;
-					memset( perintah2, 0, strlen(perintah2) );
-					printf("\nSelamat datang di aplikasi buku\n");
-					printf("Perintah :\n0. exit\n1. add\n2. download\n3. delete\n4. see\n5. find\n");
-					printf("Masukkan pilihan : ");
-					getchar();
-					scanf("%s", perintah2);
-					
-					if(strcmp(perintah2, "exit") == 0 ) {
-						send(sock, "exit", 10, 0);
-						printf("Terima kasih telah menggunakan aplikasi\n");
-						close(sock);
-						//goto first_login;
-					}
-					
-					if(strcmp(perintah2, "add") == 0 ) {
-						char publisher[1000],filepath[1000], c_message[1000], tahun[1000];
-						
-						strcpy(c_message, "a");
-						printf("Masukkan Publisher : ");
-						getchar();
-						scanf("%s", publisher);
-						strcat(c_message, publisher);
-						strcat(c_message, "\t");
-						printf("Masukkan Tahun publikasi : ");
-						getchar();
-						scanf("%s", tahun);
-						strcat(c_message, tahun);
-						strcat(c_message, "\t");
-						printf("Masukkan Filepath : ");
-						getchar();
-						scanf("%s", filepath);
-						
-						strcat(c_message, filepath);
-						
-						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , 1000 , 0);
-						printf("%s\n", c_message);
-						goto after_login;
-					}
-					
-					if(strcmp(perintah2, "download") == 0 ) {
-						char temp[1000],c_message[1000];
-						strcpy(c_message, "d");
-						printf("Masukkan nama file : ");
-						getchar();
-						scanf("%s", temp);
-						strcat(c_message, temp);
-						
-						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , strlen(c_message) , 0);
-						
-						if(strcmp(c_message, "ok") == 0) printf("File berhasil di download\n");
-						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil di download\n");
-						
-						goto after_login;
-					}
-					
-					if(strcmp(perintah2, "delete") == 0 ) {
-						char temp[1000],c_message[1000];
-						strcpy(c_message, "h");
-						printf("Masukkan nama file : ");
-						getchar();
-						scanf("%s", temp);
-						strcat(c_message, temp);
-						
-						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , strlen(c_message) , 0);
-						
-						if(strcmp(c_message, "ok") == 0) printf("File berhasil di delete\n");
-						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil di delete\n");
-						
-						goto after_login;
-					}
-					
-					if(strcmp(perintah2, "see") == 0) {
-						char c_message[1000];
-						memset(c_message, 0, 1000);
-						strcpy(c_message, "s");
-						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , strlen(c_message) , 0);
-						
-						while( (strcmp(c_message,"File berhasil ditampilkan\n") != 0) && (strcmp(c_message,"File tidak ada yang ditampilkan\n") != 0) ) {
-							printf("%s",c_message);
-							memset(c_message, 0, 1000);
-							recv(sock , c_message , 1000 , 0);
-						}
-						printf("%s", c_message);
-						goto after_login;
-					}
-					
-					if(strcmp(perintah2, "find") == 0 ) {
-						char temp[1000],c_message[1000];
-						strcpy(c_message, "f");
-						printf("Masukkan nama file : ");
-						getchar();
-						scanf("%s", temp);
-						strcat(c_message, temp);
-						
-						printf("ini c_message: %s\n", c_message);
-						
-						send(sock, c_message, strlen(c_message), 0);
-						recv(sock , c_message , strlen(c_message) , 0);
-						
-						while( (strcmp(c_message,"ok") != 0) && (strcmp(c_message,"no") != 0) && (strcmp(c_message,"kosong") != 0) ) {
-							printf("%s",c_message);
-							memset(c_message, 0, 1000);
-							recv(sock , c_message , 1000 , 0);
-						}
-						
-						if(strcmp(c_message, "ok") == 0) printf("File berhasil ditemukan\n");
-						else if(strcmp(c_message, "no") == 0) printf("File tidak berhasil ditemukan\n");
-						else if(strcmp(c_message, "kosong") == 0) printf("File masih belum ada\n");
-						
-						goto after_login;
-					}
-				}
-				
-			}
-			else {
-				printf("Perintah yang dimasukkan salah\n");
-				goto first_login;
-			}
+    // minta command
+    while(strcmp(msg, "exit") != 0) {
+        scanf(" %[^\n]s", msg);
+        command(msg, client_fd);
+    }
 
-		}
-	}
-    
-
-
-	close(sock);
     return 0;
 }

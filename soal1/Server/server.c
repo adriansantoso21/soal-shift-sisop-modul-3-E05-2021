@@ -1,543 +1,648 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
-#include<arpa/inet.h>
-#include<unistd.h>
-#include<pthread.h>
 #include <stdbool.h>
-#include <sys/stat.h>
 #include <libgen.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <dirent.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <errno.h>
 #define PORT 8080
 
+char currPath[255]; //path untuk "../Server/"
+char txtPath[255]; //path untuk akun.txt
 
-typedef struct akun {
-	char id[1000];
-	char pass[1000];
-} akun;
+char buffer[1024] = ""; //untuk read
+char msg[1024] = ""; //untuk send
 
-typedef struct buku {
-	char publisher[1000];
-	char tahun[1000];
-	char path[1000];
-	char nama[1000];
-	char extension[1000];
-} buku;
+bool isClientExist = false;
 
-int jumlah_akun = -1, masuk=0, jumlah_buku = -1;
-char status[1000], message[2000], message1[2000];
-akun client_akun[1000];
-buku client_buku[1000];
 
-char *checkfile(char *filename) {
-    if(filename[0] == '.') return "Hidden"; 
-    char *temp = strchr(filename, '.');
-    if(!temp) return "Unknown";
-    return temp + 1;
-}
+int _getNumberOfLine(char *path) {
+    FILE *fp = fopen(path, "r");
 
-void deletefile(char nama_file[]){
-
-	int iter=-1;
-	char pathtujuan[1000], pathasal[1000], temp[1000];
-  	memset(pathasal, 0, 1000);
-  	strcpy(pathasal, "/home/adr01/Documents/SesiLab3/Soal1/Server/FILES/");
-  	strcat(pathasal, nama_file);
-  	 
-  	memset(pathtujuan, 0, 1000);
-  	strcpy(pathtujuan, "/home/adr01/Documents/SesiLab3/Soal1/Server/FILES/");
-  	strcat(pathtujuan, "old-");
-  	strcat(pathtujuan, nama_file);
-  	
-  	// Memindahkan folder
-  	rename(pathasal, pathtujuan);
-  	
-  	// Menghapus dari array
-  	for (int a=0; a<=jumlah_buku; a++){
-  		if(strcmp(nama_file, client_buku[a].nama)==0) continue;
-  		
-  		strcpy(client_buku[++iter].publisher, client_buku[a].publisher);
-		strcpy(client_buku[++iter].path, client_buku[a].path);
-		strcpy(client_buku[++iter].tahun, client_buku[a].tahun);
-		strcpy(client_buku[++iter].nama, client_buku[a].nama);
-		strcpy(client_buku[++iter].extension, client_buku[a].extension);
-  	}
-  	
-  	jumlah_buku--;
-  	
-  	// Menghapus dari file tsv
-	FILE *filetsv;
-    filetsv = fopen("files.tsv", "w");
-    fprintf(filetsv, "Publisher\tTahun publikasi\tFilepath\n");
-    for(int a=0; a<=jumlah_buku; a++){
-    	strcpy(temp, client_buku[a].publisher);strcat(temp, "\t");
-    	strcat(temp, client_buku[a].tahun);strcat(temp, "\t");
-    	strcat(temp, client_buku[a].path);strcat(temp, "\n");
-    	memset(temp, 0, 1000);
+    int count_lines = 0;
+    char chr = getc(fp);
+    while (chr != EOF) {
+        //Count whenever new line is encountered
+        if (chr == '\n')
+            count_lines++;
+        //take next character from file.
+        chr = getc(fp);
     }
-    fclose(filetsv);
+
+    fclose(fp);
+    return count_lines;
 }
 
-void downloadfile(char nama_file[]){
+int _isUserExist(char *user, char *path) {
+    FILE *fp = fopen(path, "r");
 
-	char pathtujuan[1000], pathasal[1000];
-  	memset(pathasal, 0, 1000);
-  	strcpy(pathasal, "/home/adr01/Documents/SesiLab3/Soal1/Server/FILES/");
-  	strcat(pathasal, nama_file);
-  	 
-	// Mengambil data dari folder FILES	
-	FILE *file;
-	file = fopen(pathasal, "r");
-	
-	// Membuat file pada client
-  	memset(pathtujuan, 0, 1000);
-  	strcpy(pathtujuan, "/home/adr01/Documents/SesiLab3/Soal1/Client/");
-  	strcat(pathtujuan, nama_file);
-  	
-  	// Menuliskan isi folder
-	FILE *fp;
-	fp = fopen (pathtujuan, "w");
-	char temp = fgetc(file);
-	while(temp != EOF){
-		fputc(temp, fp);
-		temp = fgetc(file);
-	}
-	fclose(file);
-	fclose(fp);
+    char buff[255];
+    int iter = _getNumberOfLine(path);
+    while(iter--) {
+        fscanf(fp, "%[^:]s", buff);
+        if(strcmp(buff, user) == 0) {
+            fclose(fp);
+            return 1;
+        }
+        fscanf(fp, "%[^\n]s", buff);
+        getc(fp);
+    }
+
+    fclose(fp);
+    return 0;
 }
 
-char *FileExtension(char *filename) {
-    char *temp = strrchr(filename, '.');
-    return temp + 1;
+/*
+ * Check if a file exist using fopen() function
+ * return 1 if the file exist otherwise return 0
+ */
+int _isFileExists(const char *fPath){
+    /* try to open file to read */
+    FILE *file;
+    if (file = fopen(fPath, "rb")){
+        fclose(file);
+        return 1;
+    }
+    return 0;
 }
 
-void moveFiles(char file_path[], char nama_file[]){
-
-	// Mengambil data dari file asal	
-	FILE *file;
-	
-	file = fopen(file_path, "r");
-	
-	// Membuat folder FILES
-  	char pathtujuan[1000];
-  	memset(pathtujuan, 0, 1000);
-  	strcpy(pathtujuan, "/home/adr01/Documents/SesiLab3/Soal1/Server/FILES/");
-  	strcat(pathtujuan, nama_file);
-  	
-  	// Menuliskan isi folder
-	FILE *fp;
-	fp = fopen (pathtujuan, "w");
-	char temp = fgetc(file);
-	while(temp != EOF){
-		fputc(temp, fp);
-		temp = fgetc(file);
-	}
-	fclose(file);
-	fclose(fp);
+char *_getFilenameExt(const char *filename) {
+    char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
 }
 
-void add_tsvfile(char message[]){
-	char file[1000];
-	int i = -1;
-	
-	memset( file, 0, strlen(file) );
-	
-	for(int c=1; c<strlen(message); c++) {
-		file[++i] = message[c];
-	}
-	
-	FILE *f1;
-	f1 = fopen("files.tsv","a");
-    fprintf(f1,"%s\n",file);
-    fclose(f1);
+char *_getFileName(char *path) {
+    char *path2 = strdup(path);
+    char *bname = basename(path2);
+    return bname;
 }
 
-void createDir(char *dir) {
-	struct stat st = {0};
-
-	if (stat(dir, &st) == -1) {
-		mkdir(dir, 0777);
-	}
+// gunakan hanya di main
+char *strCt(char *str1, char *str2) {
+    static char buffer[255];
+    sprintf(buffer, "%s%s", str1, str2);
+    return buffer;
 }
 
-void register_user(char id_user[], char pass_user[]){
-	jumlah_akun++;
-	
-	strcpy(client_akun[jumlah_akun].id, id_user);
-	strcpy(client_akun[jumlah_akun].pass, pass_user);
-	
-	FILE *fptr;
-	fptr = fopen("akun.txt","a");
-    fprintf(fptr,"%s : %s\n",client_akun[jumlah_akun].id, client_akun[jumlah_akun].pass);
-    fclose(fptr);
+const char *getFirstWord(char *str) {
+    int i;
+    char word[255] = "";
+    for(i = 0; i < strlen(str); i++) {
+        if(str[i] == ' ') break;
+        word[i] = str[i];
+    }
+    char *wordptr = word;
+    return wordptr;
 }
 
-bool login_user(char id_user[], char pass_user[]){
-	int flag=0;
-	for(int b=0; b<=jumlah_akun; b++){
-		if( (strcmp(client_akun[b].id, id_user) ==0) && (strcmp(client_akun[b].pass, pass_user) ==0)) {
-			masuk = 1;
-			flag=1;
-			break;
-		}
-	}
-	if (flag==1) return true;
-	return false;
+const char *getAllNextWord(char *str) {
+    int x = 0, isSpaceExist = 0;
+    while(x < strlen(str)) {
+        if(str[x] == ' ') {
+            isSpaceExist = 1;
+            break;
+        }
+        x++;
+    }
+    if(!isSpaceExist) return NULL;
+
+    int i = 0, j = 0;
+    char word[255] = "";
+
+    while(str[i++] != ' ');
+
+    while(i < strlen(str)) {
+        word[j] = str[i];
+        i++;
+        j++;
+    }
+
+    if(strcmp(word, "") != 0) {
+        char *wordptr = word;
+        return wordptr;
+    } else {
+        return NULL;
+    }
 }
 
 
-// Handle multiple clients
-void *multiple_connection (void *socket_desc)
-{
-	//Get the socket descriptor
-	int sock = *(int*)socket_desc;
-	int read_size;
-	bool status;
-	memset( message, 0, strlen(message) );
-	if(masuk) send(sock , "penuh" , 10 , 0 );
-	else send(sock , "kosong" , 10 , 0 );
-	memset( message, 0, strlen(message) );
-	
-	first_login:;
-	// Menerima pesan dari user apakah dia login / register
-	while( (read_size = recv(sock , message , 2000 , 0)) > 0 )
-	{
-		
-		if(message[0] == 'r' || message[0] == 'l') {
-			int iter = -1, iter1 = -1, i, a;
-			char id_user[1000], pass_user[1000];
-			
-			strcpy(id_user, "");strcpy(pass_user, "");
-				
-			for(i=1; i<=strlen(message); i++){
-				if(message[i] != '\t') id_user[++iter] = message[i];
-				else break;
-			}
-			
-			for(a=i+1; a<=strlen(message); a++){
-				pass_user[++iter1] = message[a];
-			}
-			
-			// Jika pilihan register
-			if(message[0] == 'r'){
-				register_user(id_user, pass_user);
-				memset( message, 0, strlen(message) );
-				strcpy(message, "Proses register berhasil\n");
-				send(sock , message , strlen(message) , 0 );
-				//goto first_login;
-			}
-			
-			// Jika pilihan login
-			else if (message[0] == 'l'){
-			
-				status = login_user(id_user, pass_user);	
-				if(status) {
-					send(sock , "true" , 1000 , 0 );
-					goto after_login;
-				}
-				else {
-					send(sock , "false" , 1000 , 0 );
-					//goto first_login;
-				}
-				
-				after_login:;
-				memset( message, 0, strlen(message) );
-				recv(sock , message , 2000 , 0);
-				
-				// Jika pilihan add
-				if(message[0] == 'a') {
-					// Mengambil data publisher, tahun, path
-					int it1=-1, it2=-1, it3=-1, d, e, f;
-					char publisher[1000], tahun[1000], path[1000], namaFile[1000], fileExt[1000], temp[1000];
-					
-					for(d=1; d<strlen(message); d++){
-						if(message[d] != '\t') publisher[++it1] = message[d];
-						else break;
-					}
-					
-					for(e=d+1; e<=strlen(message); e++){
-						if(message[e] != '\t') tahun[++it2] = message[e];
-						else break;
-					}
-					
-					for(f=e+1; f<=strlen(message); f++){
-						path[++it3] = message[f];
-					}
-					
-					strcpy(namaFile, basename(path));
-					
-					strcpy(fileExt, FileExtension(namaFile));
-					
-					++jumlah_buku;
-					
-					strcpy(client_buku[jumlah_buku].publisher, publisher);
-					strcpy(client_buku[jumlah_buku].path, path);
-					strcpy(client_buku[jumlah_buku].tahun, tahun);
-					strcpy(client_buku[jumlah_buku].nama, namaFile);
-					strcpy(client_buku[jumlah_buku].extension, fileExt);
-					
-					add_tsvfile(message);
-					moveFiles(path, namaFile);
-					
-					// Menambahkan ke running.log
-					FILE *f1;
-					f1 = fopen("running.log","a");
-					fprintf(f1,"Tambah : %s (%s:%s)\n", namaFile, id_user, pass_user);
-					fclose(f1);
-					
-					send(sock , "File berhasil dimasukkan" , 1000 , 0 );
-					goto after_login;
-				}
-				
-				// Jika pilihan see
-				if(message[0] == 's') {
-					if(jumlah_buku == -1) send(sock , "File tidak ada yang ditampilkan\n" , 1000 , 0 );
-					else {
-						char publisher[1000], tahun[1000], path[1000], namaFile[1000], fileExt[1000], temp[1000];
-						for(int a=0; a<=jumlah_buku; a++){
-							memset( namaFile, 0, strlen(namaFile) );
-							memset( publisher, 0, strlen(publisher) );
-							memset( tahun, 0, strlen(tahun) );
-							memset( fileExt, 0, strlen(fileExt) );
-							memset( path, 0, strlen(path) );
-							
-							strcpy(namaFile, "Nama: ");strcat(namaFile, client_buku[a].nama);strcat(namaFile, "\n");
-							
-							strcpy(publisher, "Publisher: ");strcat(publisher, client_buku[a].publisher);strcat(publisher, "\n");
-							
-							strcpy(tahun, "Tahun publishing: ");strcat(tahun, client_buku[a].tahun);strcat(tahun, "\n");
-							
-							strcpy(fileExt, "Ekstensi file: ");strcat(fileExt, client_buku[a].extension);strcat(fileExt, "\n");
-							
-							strcpy(path, "Filepath: ");strcat(path, client_buku[a].path);strcat(path, "\n");
-							
-							//printf("%s\n", publisher);
-							
-							send(sock , namaFile , strlen(namaFile) , 0 );
-							send(sock , publisher , strlen(publisher) , 0 );
-							send(sock , tahun , strlen(tahun) , 0 );
-							send(sock , fileExt , strlen(fileExt) , 0 );
-							send(sock , path , strlen(path) , 0 );
-							send(sock , "\n" , 1000 , 0 );
-						}
-						send(sock , "File berhasil ditampilkan\n" , 1000 , 0 );
-					}
-					goto after_login;
-				}
-				
-				// Jika pilihan delete
-				if(message[0] == 'h') {
-					char path_delete[1000];
-					int iter2 = -1;
-					int flag=0;
+// fungsi A-G: 
 
-					for(int g=1; g<= strlen(message); g++ ){
-						path_delete[++iter2] = message[g];
-					}
-					
-					// Cek file
-					for(int h = 0; h <=jumlah_buku; h++){
-						if(strcmp(path_delete, client_buku[h].nama)==0){
-							flag=1;
-							break;
-						}
-					}
-					
-					if(flag){
-						deletefile(path_delete);
-						
-						// Menambahkan ke running.log
-						FILE *f1;
-						f1 = fopen("running.log","a");
-						fprintf(f1,"Hapus : %s (%s:%s)\n", path_delete, id_user, pass_user);
-						fclose(f1);
-												
-						send(sock , "ok" , 3 , 0 );
-					}
-					else{
-						send(sock , "no" , 3 , 0 );
-					}
-					goto after_login;
-				}
-				
-				// Jika pilihan download
-				if(message[0] == 'd') {
-					char nama_file[1000], path_delete[1000], path_baru[1000];
-					int iter2 = -1;
-					int flag=0;
+// create socket, retrun fd (server)
+int createServerSocket(struct sockaddr_in *address, int *addrlen) {
+    int fd, opt = 1;
 
-					for(int g=1; g<= strlen(message); g++ ){
-						nama_file[++iter2] = message[g];
-					}
-					
-					// Cek file
-					for(int h = 0; h <=jumlah_buku; h++){
-						if(strcmp(nama_file, client_buku[h].nama)==0){
-							flag=1;
-							break;
-						}
-					}
-					
-					if(flag){
-						downloadfile(nama_file);
-						printf("Berhasil download\n");
-						send(sock , "ok" , 3 , 0 );
-					}
-					else{
-					printf("gagal download\n");
-						send(sock , "no" , 3 , 0 );
-					}
-					goto after_login;
-				}
-				
-				// Jika pilihan find
-				if(message[0] == 'f') {
-					char nama_file[1000];
-					int iter2 = -1;
-					int flag=0;
-
-					for(int g=1; g<= strlen(message); g++ ){
-						nama_file[++iter2] = message[g];
-					}
-					
-					printf("ini nama_file: %s\n", nama_file);
-					
-					if(jumlah_buku == -1) send(sock , "kosong" , 1000 , 0 );
-					else {
-						char publisher[1000], tahun[1000], path[1000], namaFile[1000], fileExt[1000], temp[1000];
-						for(int a=0; a<=jumlah_buku; a++){
-							printf("ini buku ke-%d : %s\n", a, client_buku[a].nama);
-							// Mengecek apakah terdapat atau tidak
-							if(strstr(client_buku[a].nama, nama_file) == NULL ) continue;
-							flag=1;
-							
-							memset( namaFile, 0, strlen(namaFile) );
-							memset( publisher, 0, strlen(publisher) );
-							memset( tahun, 0, strlen(tahun) );
-							memset( fileExt, 0, strlen(fileExt) );
-							memset( path, 0, strlen(path) );
-							
-							strcpy(namaFile, "Nama: ");strcat(namaFile, client_buku[a].nama);strcat(namaFile, "\n");
-							
-							strcpy(publisher, "Publisher: ");strcat(publisher, client_buku[a].publisher);strcat(publisher, "\n");
-							
-							strcpy(tahun, "Tahun publishing: ");strcat(tahun, client_buku[a].tahun);strcat(tahun, "\n");
-							
-							strcpy(fileExt, "Ekstensi file: ");strcat(fileExt, client_buku[a].extension);strcat(fileExt, "\n");
-							
-							strcpy(path, "Filepath: ");strcat(path, client_buku[a].path);strcat(path, "\n");
-							
-							send(sock , namaFile , 1000 , 0 );
-							send(sock , publisher , 1000 , 0 );
-							send(sock , tahun , 1000 , 0 );
-							send(sock , fileExt , 1000 , 0 );
-							send(sock , path , 1000 , 0 );
-							send(sock , "\n" , 1000 , 0 );
-						}
-						
-						if(flag){
-							send(sock , "ok" , 3 , 0 );
-						}
-						else{
-							send(sock , "no" , 3 , 0 );
-						}
-					}
-					
-					goto after_login;
-				}
-			}
-			
-			memset( message, 0, strlen(message) );
-		}
-		if(strcmp(message, "exit")){
-			masuk = 0;
-			fflush(stdout);
-		}
-	}
-	
-	if(read_size == 0)
-	{
-		puts("Client disconnected");
-		fflush(stdout);
-	}
-	else if(read_size == -1)
-	{
-		perror("recv failed");
-	}
-		
-	//Free the socket pointer
-	free(socket_desc);
-	
-	return 0;
-}
-
-int main(int argc, char const *argv[]) {
-    int server_fd, new_socket, valread, c, *new_sock, client_sock;
-    struct sockaddr_in address, client;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[1024] = {0};
-      
-    //Create socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-      
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
 
-	// Prepare the sockaddr_in structure
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( PORT );
-      
-      
-    // Bind   
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
+    address->sin_family = AF_INET;
+    address->sin_addr.s_addr = INADDR_ANY;
+    address->sin_port = htons(PORT);
+    *addrlen = sizeof(*address);
+
+    if (bind(fd, (struct sockaddr *)address, *addrlen) < 0) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-
-    // Listen
-    if (listen(server_fd, 3) < 0) {
+    if (listen(fd, 3) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    
-    // Membuat files.tsv
-    FILE *filetsv;
-    filetsv = fopen("files.tsv", "a+");
-    fprintf(filetsv, "Publisher\tTahun publikasi\tFilepath\n");
-    fclose(filetsv);
-    
-    // Membuat folder FILES
-    char cwd[1000];
-    getcwd(cwd, sizeof(cwd));
-    strcat(cwd, "/FILES");
-    createDir(cwd);
+    return fd;
+}
 
-	// Menerima banyak client
-	c = sizeof(struct sockaddr_in);
-	while( (client_sock = accept(server_fd, (struct sockaddr *)&client, (socklen_t*)&c)) )
-	{
-		puts("Client baru diterima");
-		
-		pthread_t tid;
-		new_sock = malloc(1);
-		*new_sock = client_sock;
-		
-		if( pthread_create( &tid , NULL ,  multiple_connection, (void*) new_sock) < 0)
-		{
-			perror("could not create thread");
-			return 1;
-		}
+// butuh: _isUserExist()
+void registerUser(char *path, int socket) {
+    FILE *fp = fopen(path, "a+");
 
-	}
+    char username[100], password[100];
+    // printf("Username:\n");
+    strcpy(msg, "Username:\n");
+    send(socket, msg, strlen(msg), 0);
+    // scanf("%s", username);
+    memset(username, 0, sizeof(username));
+    read(socket, username, sizeof(username));
+
+    // printf("Password:\n");
+    strcpy(msg, "Password:\n");
+    send(socket, msg, strlen(msg), 0);
+    // scanf("%s", password);
+    memset(password, 0, sizeof(password));
+    read(socket, password, sizeof(password));
+
+    if(!_isUserExist(username, path)) {
+        fprintf(fp, "%s:%s\n", username, password);
+        // printf("Account registered.\n");
+        strcpy(msg, "Account registered.\n");
+        send(socket, msg, strlen(msg), 0);
+    } else {
+        // printf("Username sudah ada.\n");
+        strcpy(msg, "Username sudah ada.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+
+    fclose(fp);
+}
+
+// butuh: _getNumberOfLine(),
+char *loginUser(char *path, int socket) {
+    FILE *fp = fopen(path, "r");
+
+    char username[100], password[100];
+    static char userpass[255];
+    // printf("Username:\n");
+    strcpy(msg, "Username:\n");
+    send(socket, msg, strlen(msg), 0);
+    // scanf("%s", username);
+    memset(username, 0, sizeof(username));
+    read(socket, username, sizeof(username));
+
+    // printf("Password:\n");
+    strcpy(msg, "Password:\n");
+    send(socket, msg, strlen(msg), 0);
+    // scanf("%s", password);
+    memset(password, 0, sizeof(password));
+    read(socket, password, sizeof(password));
+
+    sprintf(userpass, "%s:%s", username, password);
+
+    char buff[255];
+    int iter = _getNumberOfLine(path);
+    while(iter--) {
+        fscanf(fp, "%[^\n]s", buff);
+        if(strcmp(userpass, buff) == 0) {
+            // printf("Login berhasil.\n");
+            strcpy(msg, "Login berhasil.\n");
+            send(socket, msg, strlen(msg), 0);
+            fclose(fp);
+            return userpass;
+        }
+        getc(fp);
+    }
+
+    // printf("Login gagal.\n");
+    strcpy(msg, "Login gagal.\n");
+    send(socket, msg, strlen(msg), 0);
+    fclose(fp);
+    return NULL;
+}
+
+// butuh: _isFileExist()
+int copyFile(char *pathIn, char *pathOut) {
+    // pathIn: path file yang dicopy
+    if(!_isFileExists(pathIn)) {
+        return 0; // return 0 jika tidak ada file
+    }
+
+    FILE *exein, *exeout;
+    exein = fopen(pathIn, "rb");
+    if (exein == NULL) {
+        /* handle error */
+        perror("file open for reading");
+        exit(EXIT_FAILURE);
+    }
+    exeout = fopen(pathOut, "wb");
+    if (exeout == NULL) {
+        /* handle error */
+        perror("file open for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t n, m;
+    unsigned char buff[8192];
+    do {
+        n = fread(buff, 1, sizeof buff, exein);
+        if (n)
+            m = fwrite(buff, 1, n, exeout);
+        else
+            m = 0;
+    } while ((n > 0) && (n == m));
+
+    if (m) perror("copy");
+    if (fclose(exeout)) perror("close output file");
+    if (fclose(exein)) perror("close input file");
+
+    return 1; // return 1 jika berhasil
+}
+
+// butuh: _getFileName(), _getFilenameExt(), copyFile()
+void addFiles(char *tsvPath, char* userpass, int socket) {
+    char pub[100], thn[10], fpath[255];
+    // printf("Publisher: ");
+    strcpy(msg, "Publisher: ");
+    send(socket, msg, strlen(msg), 0);
+    // scanf(" %[^\n]s", pub);
+    memset(pub, 0, sizeof(pub));
+    read(socket, pub, sizeof(pub));
+
+    // printf("Tahun Publikasi: ");
+    strcpy(msg, "Tahun Publikasi: ");
+    send(socket, msg, strlen(msg), 0);
+    // scanf("%s", thn);
+    memset(thn, 0, sizeof(thn));
+    read(socket, thn, sizeof(thn));
+
+    // printf("Filepath: ");
+    strcpy(msg, "Filepath: ");
+    send(socket, msg, strlen(msg), 0);
+    // scanf(" %[^\n]s", fpath);
+    memset(fpath, 0, sizeof(fpath));
+    read(socket, fpath, sizeof(fpath));
+
+    char *fname, *fext;
+    fname = _getFileName(fpath);
+    fext = _getFilenameExt(fname);
+
+    // copy file dari client ke server
+    char fserverPath[255];
+    sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
+    if(_isFileExists(fserverPath) == 1) {
+        //file sudah ada di server
+        strcpy(msg, "file sudah ada di server.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    } else if(copyFile(fpath, fserverPath) == 0) {
+        // printf("file tidak ada di client.\n");
+        strcpy(msg, "file tidak ada di client.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    }
+
+    // update files.tsv
+    FILE *fp = fopen(tsvPath, "a+");
+    fprintf(fp, "%s\t%s\t%s\t%s\t%s\n", fname, pub, thn, fext, fpath);
+
+    // printf("%s berhasil ditambahkan\n", fname);
+    sprintf(msg, "file berhasil ditambahkan.\n");
+    send(socket, msg, strlen(msg), 0);
+    fclose(fp);
+
+    // update running.log
+    char rlogPath[255];
+    sprintf(rlogPath, "%s/%s", currPath, "running.log");
+    fp = fopen(rlogPath, "a+");
+    fprintf(fp, "Tambah: %s (%s)\n", fname, userpass);
+    fclose(fp);
+}
+
+// butuh: copyFile()
+void downloadFile(char *fname, int socket) {
+    // send " "
+    send(socket, " ", strlen(" "), 0);
+
+    char fserverPath[255] = "";
+    sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
+
+    char fclientPath[255] = "";
+    // getcwd(fclientPath, sizeof(fclientPath));
+    // sprintf(fclientPath, "%s/%s", fclientPath, fname);
+    memset(fclientPath, 0, sizeof(fclientPath));
+    read(socket, fclientPath, sizeof(fclientPath));
+    sprintf(fclientPath, "%s/%s", fclientPath, fname);
+
+    if(copyFile(fserverPath, fclientPath) == 0) {
+        // printf("file tidak ada di server.\n");
+        strcpy(msg, "file tidak ada di server\n");
+        send(socket, msg, strlen(msg), 0);
+    } else {
+        strcpy(msg, "download berhasil\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+}
+
+// butuh: _getNumberOfLine(), _isFileExists()
+void deleteFile(char *fname, char* login, int socket) {
+    // cek apakah file ada?
+    char fPath[255], cwd[255], tsvPath[255];
+    getcwd(cwd, sizeof(fPath));
+    sprintf(fPath, "%s/%s/%s", cwd, "FILES", fname);
+    sprintf(tsvPath, "%s/%s", cwd, "files.tsv");
+
+    if(!_isFileExists(fPath)) {
+        // printf("file tidak ada.\n");
+        strcpy(msg, "file tidak ada.\n");
+        send(socket, msg, strlen(msg), 0);
+        return; // return jika tidak ada
+    }
+
+    // delete line di files.tsv
+    FILE *fp = fopen(tsvPath, "r");
+    char buff[255];
+    char newtsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+        if(strcmp(buff, fname) != 0) {
+            strcat(newtsv, buff);
+            fscanf(fp, "%[^\n]s", buff);
+            sprintf(buff, "%s\n", buff);
+            strcat(newtsv, buff);
+            getc(fp);
+        } else {
+            fscanf(fp, "%[^\n]s", buff);
+            getc(fp);
+        }
+    }
+    fclose(fp);
+
+    fp = fopen(tsvPath, "w");
+    fprintf(fp, "%s", newtsv);
+    fclose(fp);
+
+    // rename file: old-fname
+    char oldname[255];
+    strcpy(oldname, fPath);
+    char newname[255];
+    sprintf(newname, "%s/%s/old-%s", cwd, "FILES", fname);
+
+    if(rename(oldname, newname) == 0) {
+        // printf("delete/rename berhasil\n");
+        strcpy(msg, "delete/rename berhasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    } else {
+        // printf("delete/rename gagal\n");
+        strcpy(msg, "delete/rename gagal.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+
+    // update running.log
+    char rlogPath[255];
+    sprintf(rlogPath, "%s/%s", cwd, "running.log");
+    fp = fopen(rlogPath, "a+");
+    fprintf(fp, "Hapus: %s (%s)\n", fname, login);
+    fclose(fp);
+}
+
+// save to array and then print
+// butuh: _getNumberOfLine(),
+void seeTsv(char *tsvPath, int socket) {
+    FILE *fp = fopen(tsvPath, "r");
+
+    char buff[255];
+    char buff2[255];
+    char tsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Nama: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Publisher: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Tahun publishing: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Ekstensi File: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\n]s", buff);
+        sprintf(buff2, "Filepath: %s\n\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+    }
+    fclose(fp);
+
+    // printf("%s", tsv); // semuanya disini
+    if(strcmp(tsv, "") == 0) {
+        strcpy(msg, "tidak ditemukan hasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+    else {
+        send(socket, tsv, strlen(tsv), 0);
+    }
+}
+
+// save to array and then print
+// butuh: _getNumberOfLine(),
+void findFromTsv(char *tsvPath, char *word, int socket) {
+    FILE *fp = fopen(tsvPath, "r");
+
+    char buff[255];
+    char buff2[255];
+    char tsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+        if(strstr(buff, word) == NULL) {
+            fscanf(fp, "%[^\n]s", buff);
+            getc(fp);
+            continue;
+        }
+        sprintf(buff2, "Nama: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Publisher: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Tahun publishing: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Ekstensi File: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\n]s", buff);
+        sprintf(buff2, "Filepath: %s\n\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+    }
+    fclose(fp);
+
+    // printf("%s", tsv); // semuanya disini
+    if(strcmp(tsv, "") == 0) {
+        strcpy(msg, "tidak ditemukan hasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+    else {
+        send(socket, tsv, strlen(tsv), 0);
+    }
+}
+
+void* main_service(void *arg) {
+    int socket = *(int *)arg;
+
+    // cek ada client / tidak
+    if(isClientExist) {
+        strcpy(msg, "server_penuh");
+        send(socket, msg, strlen(msg), 0);
+        return NULL;
+    } else {
+        strcpy(msg, "server_kosong");
+        send(socket, msg, strlen(msg), 0);
+        isClientExist = true;
+    }
+
+    char req[100];
+    bool exit = false;
+
+    while(!exit) {
+        // scanf("%s", req);
+        memset(req, 0, sizeof(req));
+        read(socket, req, sizeof(req));
+
+        printf("*%s*\n", req);
+
+        if(strcmp(req, "exit") == 0 || strcmp(req, "") == 0) {
+            exit = true;
+            isClientExist = false;
+        }
+        else if(strcmp(req, "register") == 0) {
+            registerUser(txtPath, socket);
+        }
+        else if(strcmp(req, "login") == 0) {
+            char *login = loginUser(txtPath, socket); // sukses-> "user:pass", gagal-> NULL
+
+            while(login != NULL && !exit) {
+                char longreq[100];
+                // scanf(" %[^\n]s", longreq);
+                memset(longreq, 0, sizeof(longreq));
+                read(socket, longreq, sizeof(longreq));
+                strcpy(req, getFirstWord(longreq));
+
+                printf("**%s**\n", longreq);
+
+                if(strcmp(req, "add") == 0) {
+                    addFiles(strCt(currPath, "/files.tsv"), login, socket);
+                }
+                else if(strcmp(req, "download") == 0) {
+                    char fname[50] = "";
+                    if(getAllNextWord(longreq) != NULL){
+                        strcpy(fname, getAllNextWord(longreq));
+                        downloadFile(fname, socket);
+                    }
+                }
+                else if(strcmp(req, "delete") == 0) {
+                    char fname[50];
+                    if(getAllNextWord(longreq) != NULL){
+                        strcpy(fname, getAllNextWord(longreq));
+                        deleteFile(fname, login, socket);
+                    }
+                }
+                else if(strcmp(req, "see") == 0) {
+                    seeTsv(strCt(currPath, "/files.tsv"), socket);
+                }
+                else if(strcmp(req, "find") == 0) {
+                    char word[50];
+                    if(getAllNextWord(longreq) != NULL){
+                        strcpy(word, getAllNextWord(longreq));
+                        findFromTsv(strCt(currPath, "/files.tsv"), word, socket);
+                    }
+                }
+                else if(strcmp(req, "exit") == 0 || strcmp(req, "") == 0) {
+                    exit = true;
+                    isClientExist = false;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+int main() {
+    // mendapatkan path saat ini
+    getcwd(currPath, sizeof(currPath));
+    sprintf(txtPath, "%s/%s", currPath, "/akun.txt");
+
+    // membuat akun.txt
+    FILE *fp = fopen(txtPath, "a+");
+    fclose(fp);
+
+    // membuat files.tsv
+    fp = fopen(strCt(currPath, "/files.tsv"), "a+");
+    fclose(fp);
+
+    // membuat dir FILES
+    int result = mkdir(strCt(currPath, "/FILES"), 0777);
+
+    // membuat running.log
+    fp = fopen(strCt(currPath, "/running.log"), "a+");
+    fclose(fp);
+
+    // membuat socket
+    struct sockaddr_in address;
+    int client_socket, addrlen;
+
+    // menerima banyak client
+    int server_fd = createServerSocket(&address, &addrlen);
+    while((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) >= 0) {
+        printf("client tersambung\n");
+
+        // membuat thread
+        pthread_t tid;
+        int err = pthread_create(&(tid), NULL, &main_service, (void *)&client_socket);
+
+        if(err != 0) printf("can't create thread : [%s]",strerror(err));
+        else printf("create thread success\n");
+    }
 
     return 0;
 }
