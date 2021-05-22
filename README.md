@@ -16,26 +16,26 @@ id2:password2
 
 **c.** Tidak hanya itu, Keverk juga diminta membuat fitur agar client dapat menambah file baru ke dalam server. Direktori **FILES** memiliki struktur direktori di bawah ini:
 
-    Direktori **FILES**
-    ```
-    File1.ekstensi
-    File2.ekstensi
-    ```
+Direktori **FILES**
+```
+File1.ekstensi
+File2.ekstensi
+```
 
-    Pertama client mengirimkan input ke server dengan struktur sebagai berikut :
-    Contoh Command Client:
-    ```
-    add
-    ```
+Pertama client mengirimkan input ke server dengan struktur sebagai berikut :
+Contoh Command Client:
+```
+add
+```
 
-    Output Client Console:
-    ```
-    Publisher:
-    Tahun Publikasi:
-    Filepath:
-    ```
+Output Client Console:
+```
+Publisher:
+Tahun Publikasi:
+Filepath:
+```
 
-    Kemudian, dari aplikasi client akan dimasukan data buku tersebut (perlu diingat bahwa Filepath ini merupakan **path file yang akan dikirim ke server**). Lalu client nanti akan melakukan pengiriman file ke aplikasi server dengan menggunakan socket. Ketika file diterima di server, maka row dari files.tsv akan bertambah sesuai dengan data terbaru yang ditambahkan.
+Kemudian, dari aplikasi client akan dimasukan data buku tersebut (perlu diingat bahwa Filepath ini merupakan **path file yang akan dikirim ke server**). Lalu client nanti akan melakukan pengiriman file ke aplikasi server dengan menggunakan socket. Ketika file diterima di server, maka row dari files.tsv akan bertambah sesuai dengan data terbaru yang ditambahkan.
 
 **d.** Dan client dapat mendownload file yang telah ada dalam folder FILES di server, sehingga sistem harus dapat mengirim file ke client. Server harus melihat dari files.tsv untuk melakukan pengecekan apakah file tersebut valid. Jika tidak valid, maka mengirimkan pesan error balik ke client. Jika berhasil, file akan dikirim dan akan diterima ke client di **folder client** tersebut.
 
