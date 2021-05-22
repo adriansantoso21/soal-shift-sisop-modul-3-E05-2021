@@ -492,6 +492,16 @@ void createDir(char *dir) {
 }
 ```
 
+Testing sebelum percobaan :
+
+![1](https://user-images.githubusercontent.com/65168221/119237648-16e48500-bb68-11eb-929e-bcbbf04d9eac.jpg)
+
+
+Testing sesudah percobaan :
+
+![2](https://user-images.githubusercontent.com/65168221/119237650-1a780c00-bb68-11eb-8afe-0d538a7d10b8.jpg)
+
+
 ### 3b
 Pertama, kita perlu mengambil perintah dari argumen. Jika argumen lebih dari 3 tidak bisa karena hanya boleh memasukkan 1 direktori. Jika tidak error, maka menampilkan pesan "Direktori sukses disimpan" tetapi jika error maka mencetak "Yah, gagal disimpan". Kita memanggil fungsi ```Folder``` untuk mengkategorikan direktori.
 ```c
@@ -545,6 +555,16 @@ void Folder(char *argv){
 }
 ```
 
+Testing sebelum percobaan :
+
+![3](https://user-images.githubusercontent.com/65168221/119237661-2ebc0900-bb68-11eb-9deb-5ce1736c24c5.jpg)
+
+
+Testing sesudah percobaan :
+
+![4](https://user-images.githubusercontent.com/65168221/119237668-354a8080-bb68-11eb-8c47-d66955ca0afb.jpg)
+
+
 ### 3c
 Pertama, kita perlu mengambil perintah dari argumen. Karena ingin mengkategorikan isi dari current kategori maka kita kirim parameter berupa direktori saat ini dengan fungsi ```getcwd()```. Kemudian, kita panggil fungsi ```Folder()``` dan untuk sisa cara kerjanya sama dengan soal 3b.
 ```c
@@ -555,6 +575,16 @@ else if (strcmp(argv[1], "*") == 0) {
 		
 	}
 ```
+
+Testing sebelum percobaan :
+
+![5](https://user-images.githubusercontent.com/65168221/119237681-44313300-bb68-11eb-919e-a198feec2513.jpg)
+
+
+Testing sesudah percobaan :
+
+![6](https://user-images.githubusercontent.com/65168221/119237687-485d5080-bb68-11eb-85f0-fef8dba24b18.jpg)
+
 
 ### 3d
 Untuk persyaratan 3d, terdapat pada fungsi FileExtension. Jika pada fungsi ```strchr()``` bernilai null / tidak memiliki ekstensi maka dikembalikan string "Unknown" dan jika karakter pertama berupa "." maka itu menunjukkan bahwa ia file hidden dan dikembalikan string "Hidden".
