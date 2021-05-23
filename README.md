@@ -107,7 +107,7 @@ Struktur Direktori:
 
 ## Penjelasan penyelesaian soal
 ### 1a
-Ketika client sudah tersambung dengan server, server akan membuat thread khusus untuk client yang akan mengeksekusi fungsi `main_service()` yang di dalamnya ada loop yang akan meminta client menginputkan command `login`/`register`. Berikut potongan kodenya:
+Ketika client sudah tersambung dengan server, server akan membuat thread khusus untuk client yang akan mengeksekusi fungsi `main_service()` yang di dalamnya ada loop yang akan meminta client menginputkan command `login` atau `register`. Berikut potongan kodenya:
 ```c
 void* main_service(void *arg) {
     
@@ -332,7 +332,7 @@ int main() {
 }
 ```
 
-Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor [1c (add)](1c) dan [1e (delete)](1e)
+Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor [penjelasan 1c (add)](#1c) dan [penjelasan 1e (delete)](#1e)
 
 ### 1c
 
@@ -665,7 +665,7 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
 ```
 
 ### 1h
-Diimplementasikan pada fungsi `addFiles()` pada poin [1c](1c) untuk tambah, dan fungsi `deleteFile()` pada poin [1e](1e) untuk hapus.
+Diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
 
 Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap fungsi pada server.
 * `client.c`:
