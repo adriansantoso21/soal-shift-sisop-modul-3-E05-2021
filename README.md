@@ -302,7 +302,7 @@ void* main_service(void *arg) {
         return 0;
     }
     ```
-![demo 1a](https://s3.gifyu.com/images/1ae867d96f367d1f29.gif)
+![demo 1a](/soal1/1a.gif)
 
 ### 1b
 
@@ -335,7 +335,7 @@ int main() {
 
 Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan diimplementasikan pada fungsi pada [penjelasan 1c (add)](#1c) dan [penjelasan 1e (delete)](#1e)
 
-![demo 1b](https://s3.gifyu.com/images/1b2a824e5b26db47f9.gif)
+![demo 1b](/soal1/1b.gif)
 
 ### 1c
 
@@ -457,7 +457,7 @@ int copyFile(char *pathIn, char *pathOut) {
 }
 ```
 
-![demo1c](https://s3.gifyu.com/images/1c-2.gif)
+![demo 1c](/soal1/1c.gif)
 
 ### 1d
 Command `download sesuatu-file` dieksekusi menggunakan fungsi `downloadFile()` yang didalamnya juga menggunakan `copyFile()`:
@@ -488,7 +488,7 @@ void downloadFile(char *fname, int socket) {
 }
 ```
 
-![demo 1d](https://s3.gifyu.com/images/1dfddd5ec10aa7b335.gif)
+![demo 1d](/soal1/1d.gif)
 
 ### 1e
 Command `delete sesuatu-file` dieksekusi menggunakan fungsi `deleteFile()`
@@ -555,7 +555,7 @@ void deleteFile(char *fname, char* login, int socket) {
 }
 ```
 
-![demo 1e](https://s3.gifyu.com/images/1eb280d25d7decd3d8.gif)
+![demo 1e](/soal1/1e.gif)
 
 ### 1f
 Command `see` dieksekusi menggunakan fungsi `seeTsv()`:
@@ -611,7 +611,7 @@ void seeTsv(char *tsvPath, int socket) {
 }
 ```
 
-![demo 1f](https://s3.gifyu.com/images/1f95bb456230a8ed8d.gif)
+![demo 1f](/soal1/1f.gif)
 
 ### 1g
 Command `find sesuatu-word` dieksekusi menggunakan fungsi `findFromTsv()`:
@@ -675,7 +675,7 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
 }
 ```
 
-![demo 1g](https://s3.gifyu.com/images/1g.gif)
+![demo 1g](/soal1/1g.gif)
 
 ### 1h
 Penambahan `running.log` diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
