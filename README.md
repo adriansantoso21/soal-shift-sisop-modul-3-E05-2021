@@ -101,8 +101,8 @@ Struktur Direktori:
     ├── server.c
     ├── running.log
     └── FILES
-    ├── File2.extensi
-    └── File1.ekstensi
+        ├── File2.extensi
+        └── File1.ekstensi
 ```
 
 ## Penjelasan penyelesaian soal
