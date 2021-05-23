@@ -134,7 +134,7 @@ const char *getAllNextWord(char *str) {
 }
 
 
-// fungsi A-G: 
+// fungsi A-H: 
 
 // create socket, retrun fd (server)
 int createServerSocket(struct sockaddr_in *address, int *addrlen) {
