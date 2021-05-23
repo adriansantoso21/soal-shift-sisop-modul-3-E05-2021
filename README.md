@@ -332,7 +332,7 @@ int main() {
 }
 ```
 
-Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor 1c (add) dan 1e (delete)
+Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor [1c (add)](1c) dan [1e (delete)](1e)
 
 ### 1c
 
@@ -665,7 +665,7 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
 ```
 
 ### 1h
-Diimplementasikan pada fungsi `addFiles()` pada poin **1c** untuk tambah, dan fungsi `deleteFile()` pada poin **1e** untuk hapus.
+Diimplementasikan pada fungsi `addFiles()` pada poin [1c](1c) untuk tambah, dan fungsi `deleteFile()` pada poin [1e](1e) untuk hapus.
 
 Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap fungsi pada server.
 * `client.c`:
