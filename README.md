@@ -457,7 +457,7 @@ int copyFile(char *pathIn, char *pathOut) {
 }
 ```
 
-![demo 1c](https://s3.gifyu.com/images/1c.gif)
+![demo1c](https://s3.gifyu.com/images/1c-2.gif)
 
 ### 1d
 Command `download sesuatu-file` dieksekusi menggunakan fungsi `downloadFile()` yang didalamnya juga menggunakan `copyFile()`:
