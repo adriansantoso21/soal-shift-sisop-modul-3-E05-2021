@@ -107,21 +107,675 @@ Struktur Direktori:
 
 ## Penjelasan penyelesaian soal
 ### 1a
+Ketika client sudah tersambung dengan server, server akan membuat thread khusus untuk client yang akan mengeksekusi fungsi `main_service()` yang di dalamnya ada loop yang akan meminta client menginputkan command `login`/`register`. Berikut potongan kodenya:
+```c
+void* main_service(void *arg) {
+    
+    ...
+
+    while(!exit) {
+        // menunggu client menginputkan cmd (login/register)
+        memset(req, 0, sizeof(req));
+        read(socket, req, sizeof(req));
+
+        // print cmd yg diterima dari client
+        printf("*%s*\n", req);
+
+        // mengeksekusi fungsi berdasarkan input cmd
+        if(strcmp(req, "exit") == 0 || strcmp(req, "") == 0) {
+            exit = true;
+            isClientExist = false;
+        }
+        // cmd: register
+        else if(strcmp(req, "register") == 0) {
+            registerUser(txtPath, socket);
+        }
+        // cmd: login
+        else if(strcmp(req, "login") == 0) {
+            // sukses-> "user:pass", gagal-> NULL
+            char *login = loginUser(txtPath, socket); 
+
+            while(login != NULL && !exit) {
+                // lanjut untuk add, see, find, delete, dll
+                ...
+            }
+        }
+    }
+
+    return NULL;
+}
+```
+
+- Apabila command `register` diinputkan maka loop tersebut akan mengeksekusi fungsi `registerUser()` yang mana client akan diminta memasukkan username dan password yang kemudian akan disimpan di `akun.txt`. Jika username yang diinputkan sudah ada di `akun.txt` maka server akan mengirimkan pesan `"Username sudah ada"`, jika tidak ada maka server akan mengirimkan `"Account registered"`.
+    ```c
+    void registerUser(char *path, int socket) {
+        FILE *fp = fopen(path, "a+");
+
+        char username[100], password[100];
+
+        // mengirim prompt
+        strcpy(msg, "Username:\n");
+        send(socket, msg, strlen(msg), 0);
+        
+        // menerima input username
+        memset(username, 0, sizeof(username));
+        read(socket, username, sizeof(username));
+
+        // mengirim prompt
+        strcpy(msg, "Password:\n");
+        send(socket, msg, strlen(msg), 0);
+
+        // menunggu input password
+        memset(password, 0, sizeof(password));
+        read(socket, password, sizeof(password));
+        
+        // cek apakah username sudah terdaftar
+        if(!_isUserExist(username, path)) {
+            // jika belum : registrasi berhasil
+            fprintf(fp, "%s:%s\n", username, password);
+            strcpy(msg, "Account registered.\n");
+            send(socket, msg, strlen(msg), 0);
+        } else {
+            // jika sudah : registrasi gagal
+            strcpy(msg, "Username sudah ada.\n");
+            send(socket, msg, strlen(msg), 0);
+        }
+
+        fclose(fp);
+    }
+    ```
+
+* Apabila command `login` diinputkan, maka server akan mengeksekusi `loginUser()` yang akan mengembalikan 'string' `"[user]:[pass]"` jika login berhasil, dan akan mengembalikan `NULL` jika gagal (tidak ada di `akun.txt`)
+    ```c
+    char *loginUser(char *path, int socket) {
+        FILE *fp = fopen(path, "r");
+
+        char username[100], password[100];
+        static char userpass[255];
+        
+        // mengirim prompt
+        strcpy(msg, "Username:\n");
+        send(socket, msg, strlen(msg), 0);
+        
+        // menerima input username
+        memset(username, 0, sizeof(username));
+        read(socket, username, sizeof(username));
+
+        // mengirim prompt
+        strcpy(msg, "Password:\n");
+        send(socket, msg, strlen(msg), 0);
+        
+        // menerima input password
+        memset(password, 0, sizeof(password));
+        read(socket, password, sizeof(password));
+
+        // concat username dengan password
+        sprintf(userpass, "%s:%s", username, password);
+
+        // mengecek apakah user:pass ada di akun.txt
+        char buff[255];
+        int iter = _getNumberOfLine(path);
+        while(iter--) {
+            fscanf(fp, "%[^\n]s", buff);
+            if(strcmp(userpass, buff) == 0) {
+                // jika ketemu
+                strcpy(msg, "Login berhasil.\n");
+                send(socket, msg, strlen(msg), 0);
+                fclose(fp);
+                return userpass;
+            }
+            getc(fp);
+        }
+
+        // jika tidak ada
+        strcpy(msg, "Login gagal.\n");
+        send(socket, msg, strlen(msg), 0);
+        fclose(fp);
+        return NULL;
+    }
+    ```
+
+Untuk menerima multi-connection dan membuat client kedua dc ketika client pertama masih tersambung:
+```c
+int main() {
+    
+    ...
+
+    // membuat socket
+    struct sockaddr_in address;
+    int client_socket, addrlen;
+
+    // menerima banyak client,
+    // akan membuat thread apabila client sudah tersambung
+    int server_fd = createServerSocket(&address, &addrlen);
+    while((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) >= 0) {
+        printf("client tersambung\n");
+
+        // membuat thread
+        pthread_t tid;
+        int err = pthread_create(&(tid), NULL, &main_service, (void *)&client_socket);
+
+        if(err != 0) printf("can't create thread : [%s]",strerror(err));
+        else printf("create thread success\n");
+    }
+
+    return 0;
+}
+```
+```c
+void* main_service(void *arg) {
+    int socket = *(int *)arg;
+
+    // cek ada client / tidak
+    // membuat server hanya menerima 1 client
+    if(isClientExist) {
+        strcpy(msg, "server_penuh");
+        send(socket, msg, strlen(msg), 0);
+        return NULL;
+    } else {
+        strcpy(msg, "server_kosong");
+        send(socket, msg, strlen(msg), 0);
+        isClientExist = true;
+    }
+
+    ...
+}
+```
 
 ### 1b
 
+Ketika server dijalankan, server akan membuat file `files.tsv`, `akun.txt`, `running.log` dan folder `FILES` apabila tidak ada.
+```c
+int main() {
+    // mendapatkan path saat ini
+    getcwd(currPath, sizeof(currPath));
+    sprintf(txtPath, "%s/%s", currPath, "/akun.txt");
+
+    // membuat akun.txt
+    // "a+" membuka file untuk writing, otomatis membuat file jika tidak ada 
+    FILE *fp = fopen(txtPath, "a+");
+    fclose(fp);
+
+    // membuat files.tsv
+    fp = fopen(strCt(currPath, "/files.tsv"), "a+");
+    fclose(fp);
+
+    // membuat dir FILES
+    int result = mkdir(strCt(currPath, "/FILES"), 0777);
+
+    // membuat running.log
+    fp = fopen(strCt(currPath, "/running.log"), "a+");
+    fclose(fp);
+
+    ...
+}
+```
+
+Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor 1c (add) dan 1e (delete)
+
 ### 1c
 
+Menggunakan fungsi `addFiles()` yang juga akan mengeksekusi fungsi `_getFileName()`, `_getFilenameExt()`, `copyFile()`
+
+```c
+// butuh: _getFileName(), _getFilenameExt(), copyFile()
+void addFiles(char *tsvPath, char* userpass, int socket) {
+    char pub[100], thn[10], fpath[255];
+
+    // mengirim prompt dan menerima input client
+    strcpy(msg, "Publisher: ");
+    send(socket, msg, strlen(msg), 0);
+    memset(pub, 0, sizeof(pub));
+    read(socket, pub, sizeof(pub));
+
+    strcpy(msg, "Tahun Publikasi: ");
+    send(socket, msg, strlen(msg), 0);
+    memset(thn, 0, sizeof(thn));
+    read(socket, thn, sizeof(thn));
+
+    strcpy(msg, "Filepath: ");
+    send(socket, msg, strlen(msg), 0);
+    memset(fpath, 0, sizeof(fpath));
+    read(socket, fpath, sizeof(fpath));
+
+    char *fname, *fext;
+    fname = _getFileName(fpath);
+    fext = _getFilenameExt(fname);
+
+    // copy file dari client ke server
+    char fserverPath[255];
+    sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
+    if(_isFileExists(fserverPath) == 1) {
+        // file sudah ada di server
+        strcpy(msg, "file sudah ada di server.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    } else if(copyFile(fpath, fserverPath) == 0) {
+        // file tidak ada di client
+        strcpy(msg, "file tidak ada di client.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    }
+
+    // update files.tsv
+    FILE *fp = fopen(tsvPath, "a+");
+    fprintf(fp, "%s\t%s\t%s\t%s\t%s\n", fname, pub, thn, fext, fpath);
+
+    sprintf(msg, "file berhasil ditambahkan.\n");
+    send(socket, msg, strlen(msg), 0);
+    fclose(fp);
+
+    // update running.log
+    char rlogPath[255];
+    sprintf(rlogPath, "%s/%s", currPath, "running.log");
+    fp = fopen(rlogPath, "a+");
+    fprintf(fp, "Tambah: %s (%s)\n", fname, userpass);
+    fclose(fp);
+}
+```
+`_getFileName()`:
+```c
+// mengembalikan nama file dari input path
+char *_getFileName(char *path) {
+    char *path2 = strdup(path);
+    char *bname = basename(path2);
+    return bname;
+}
+```
+`_getFilenameExt()`:
+```c
+// mengembalikan ekstensi file dari input filename 
+char *_getFilenameExt(const char *filename) {
+    char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
+```
+`copyFile()`:
+```c
+// copy file dari pathIn ke pathOut
+// mengembalikan 1 jika berhasil, 0 jika gagal
+int copyFile(char *pathIn, char *pathOut) {
+    // pathIn: path file yang dicopy
+    if(!_isFileExists(pathIn)) {
+        return 0; // return 0 jika tidak ada file
+    }
+
+    FILE *exein, *exeout;
+    exein = fopen(pathIn, "rb");
+    if (exein == NULL) {
+        /* handle error */
+        perror("file open for reading");
+        exit(EXIT_FAILURE);
+    }
+    exeout = fopen(pathOut, "wb");
+    if (exeout == NULL) {
+        /* handle error */
+        perror("file open for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t n, m;
+    unsigned char buff[8192];
+    do {
+        n = fread(buff, 1, sizeof buff, exein);
+        if (n)
+            m = fwrite(buff, 1, n, exeout);
+        else
+            m = 0;
+    } while ((n > 0) && (n == m));
+
+    if (m) perror("copy");
+    if (fclose(exeout)) perror("close output file");
+    if (fclose(exein)) perror("close input file");
+
+    return 1; // return 1 jika berhasil
+}
+```
+
 ### 1d
+Menggunakan fungsi `downloadFile()` yang didalamnya juga menggunakan `copyFile()`
+```c
+// butuh: copyFile()
+void downloadFile(char *fname, int socket) {
+    // send " " (supaya ga ngebug karena read 2x sekaligus)
+    send(socket, " ", strlen(" "), 0);
+
+    // mendapatkan path file di server
+    char fserverPath[255] = "";
+    sprintf(fserverPath, "%s/%s/%s", currPath, "FILES", fname);
+
+    // menerima path client
+    char fclientPath[255] = "";
+    memset(fclientPath, 0, sizeof(fclientPath));
+    read(socket, fclientPath, sizeof(fclientPath));
+    sprintf(fclientPath, "%s/%s", fclientPath, fname);
+
+    // copy file dari path server ke path client
+    if(copyFile(fserverPath, fclientPath) == 0) {
+        strcpy(msg, "file tidak ada di server\n");
+        send(socket, msg, strlen(msg), 0);
+    } else {
+        strcpy(msg, "download berhasil\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+}
+```
 
 ### 1e
+Menggunakan fungsi `deleteFile()`
+```c
+// menghapus file dari server
+// butuh: _getNumberOfLine(), _isFileExists()
+void deleteFile(char *fname, char* login, int socket) {
+    // cek apakah file ada?
+    char fPath[255], cwd[255], tsvPath[255];
+    getcwd(cwd, sizeof(fPath));
+    sprintf(fPath, "%s/%s/%s", cwd, "FILES", fname);
+    sprintf(tsvPath, "%s/%s", cwd, "files.tsv");
+
+    if(!_isFileExists(fPath)) {
+        strcpy(msg, "file tidak ada.\n");
+        send(socket, msg, strlen(msg), 0);
+        return; // return jika tidak ada
+    }
+
+    // delete line di files.tsv
+    FILE *fp = fopen(tsvPath, "r");
+    char buff[255];
+    char newtsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+        if(strcmp(buff, fname) != 0) {
+            strcat(newtsv, buff);
+            fscanf(fp, "%[^\n]s", buff);
+            sprintf(buff, "%s\n", buff);
+            strcat(newtsv, buff);
+            getc(fp);
+        } else {
+            fscanf(fp, "%[^\n]s", buff);
+            getc(fp);
+        }
+    }
+    fclose(fp);
+
+    fp = fopen(tsvPath, "w");
+    fprintf(fp, "%s", newtsv);
+    fclose(fp);
+
+    // rename file: old-fname
+    char oldname[255];
+    strcpy(oldname, fPath);
+    char newname[255];
+    sprintf(newname, "%s/%s/old-%s", cwd, "FILES", fname);
+
+    if(rename(oldname, newname) == 0) {
+        strcpy(msg, "delete/rename berhasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    } else {
+        strcpy(msg, "delete/rename gagal.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+
+    // update running.log
+    char rlogPath[255];
+    sprintf(rlogPath, "%s/%s", cwd, "running.log");
+    fp = fopen(rlogPath, "a+");
+    fprintf(fp, "Hapus: %s (%s)\n", fname, login);
+    fclose(fp);
+}
+```
 
 ### 1f
+Menggunakan fungsi `seeTsv()`
+```c
+// menyimpan hasil pada array tsv kemudian send ke client
+// butuh: _getNumberOfLine(),
+void seeTsv(char *tsvPath, int socket) {
+    FILE *fp = fopen(tsvPath, "r");
+
+    char buff[255];
+    char buff2[255];
+    char tsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+
+    // memformat setiap line file files.tsv
+    // kemudian disimpan di array tsv
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Nama: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Publisher: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Tahun publishing: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Ekstensi File: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\n]s", buff);
+        sprintf(buff2, "Filepath: %s\n\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+    }
+    fclose(fp);
+
+    // semuanya di array tsv
+    if(strcmp(tsv, "") == 0) {
+        strcpy(msg, "tidak ditemukan hasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+    else {
+        send(socket, tsv, strlen(tsv), 0);
+    }
+}
+```
 
 ### 1g
+Menggunakan fungsi `findFromTsv()`
+```c
+// menyimpan hasil pada array tsv kemudian send ke client
+// butuh: _getNumberOfLine(),
+void findFromTsv(char *tsvPath, char *word, int socket) {
+    FILE *fp = fopen(tsvPath, "r");
+
+    char buff[255];
+    char buff2[255];
+    char tsv[1024] = "";
+    int iter = _getNumberOfLine(tsvPath);
+
+    // mencari & memformat pada setiap line file files.tsv
+    // kemudian disimpan di array tsv
+    while(iter--) {
+        fscanf(fp, "%[^\t]s", buff);
+
+        // cek apakah nama mengandung kata yg dicari ?
+        if(strstr(buff, word) == NULL) {
+            // jika tidak, maka line akan diskip (tidak diformat)
+            fscanf(fp, "%[^\n]s", buff);
+            getc(fp);
+            continue;
+        }
+        sprintf(buff2, "Nama: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Publisher: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Tahun publishing: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\t]s", buff);
+        sprintf(buff2, "Ekstensi File: %s\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+
+        fscanf(fp, "%[^\n]s", buff);
+        sprintf(buff2, "Filepath: %s\n\n", buff);
+        strcat(tsv, buff2);
+        getc(fp);
+    }
+    fclose(fp);
+
+    // semuanya di array tsv
+    if(strcmp(tsv, "") == 0) {
+        strcpy(msg, "tidak ditemukan hasil.\n");
+        send(socket, msg, strlen(msg), 0);
+    }
+    else {
+        send(socket, tsv, strlen(tsv), 0);
+    }
+}
+```
 
 ### 1h
+Diimplementasikan pada fungsi `addFiles()` pada poin **1c** untuk tambah, dan fungsi `deleteFile()` pada poin **1e** untuk hapus.
 
+Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap fungsi pada server.
+* `client.c`:
+    ```c
+    int main(int argc, char const *argv[]) {
+        struct sockaddr_in address, serv_addr;
+        int client_fd = createClientSocket(&address, &serv_addr);
+
+        // cek server penuh / kosong
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+
+        if(strcmp(buffer, "server_penuh") == 0) {
+            printf("Mohon maaf server penuh\n");
+            return 0;
+        }
+        
+        // meminta input cmd dan merespon server pada command()
+        while(strcmp(msg, "exit") != 0) {
+            scanf(" %[^\n]s", msg);
+            command(msg, client_fd);
+        }
+
+        return 0;
+    }
+    ```
+    fungsi `command()`
+    ```c
+    void command(char *msg, int client_fd) {
+        int iter;
+
+        // berkomunikasi dengan loginUser(), registerUser()
+        if(!isLogin && (strcmp(msg, "login") == 0 || strcmp(msg, "register") == 0)) {
+            iter = 3;
+            
+            // send: login / register
+            send(client_fd, msg, strlen(msg), 0);
+            
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+
+            //loop = 3-1
+            while(--iter) {
+                scanf(" %[^\n]s", msg);
+                send(client_fd, msg, strlen(msg), 0);
+
+                memset(buffer, 0, sizeof(buffer));
+                read(client_fd, buffer, 1024);
+                printf("%s", buffer);
+
+                if(strcmp(buffer, "Login berhasil.\n") == 0)  {
+                    isLogin = true;
+                }
+            }
+        }
+
+        // berkomunikasi dengan addFiles()
+        else if(isLogin && strcmp(msg, "add") == 0) {
+            iter = 4;
+            
+            // send: add
+            send(client_fd, msg, strlen(msg), 0);
+            
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+
+            while(--iter) {
+                scanf(" %[^\n]s", msg);
+                send(client_fd, msg, strlen(msg), 0);
+
+                memset(buffer, 0, sizeof(buffer));
+                read(client_fd, buffer, 1024);
+                printf("%s", buffer);
+            }
+        }
+
+        // berkomunikasi dengan downloadFile()
+        else if(isLogin && strcmp(getFirstWord(msg), "download") == 0 && getAllNextWord(msg) != NULL) {
+            // send: download [sesuatu] 
+            send(client_fd, msg, strlen(msg), 0);
+
+            // read " " (spy ga ngebug send 2x sekaligus)
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+
+            // send: path client
+            char cwd[255];
+            getcwd(cwd, sizeof(cwd));
+            send(client_fd, cwd, strlen(cwd), 0);
+
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+        }
+
+        // berkomunikasi dengan deleteFile()
+        else if(isLogin && strcmp(getFirstWord(msg), "delete") == 0 && getAllNextWord(msg) != NULL) {
+            // send: delete [sesuatu] 
+            send(client_fd, msg, strlen(msg), 0);
+
+            // delete gagal/berhasil ?
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+        }
+
+        // berkomunikasi dengan seeTsv(), findFromTsv()
+        else if(isLogin && strcmp(msg, "see") == 0 || (strcmp(getFirstWord(msg), "find") == 0 && getAllNextWord(msg) != NULL)) {
+            // send: see / find [sesuatu] 
+            send(client_fd, msg, strlen(msg), 0);
+
+            // list hasil see / find
+            memset(buffer, 0, sizeof(buffer));
+            read(client_fd, buffer, 1024);
+            printf("%s", buffer);
+        }
+
+        // exit client dan thread pada server
+        else if(strcmp(msg, "exit") == 0) {
+            // send: see / find [sesuatu] 
+            send(client_fd, msg, strlen(msg), 0);
+        }
+
+        // apabila command salah
+        else {
+            printf("command salah.\n");
+        }
+    }
+    ```
 
 ## Soal nomor 2
 Soal no 2 meminta kita untuk melakukan tugas sebagai berikut:\
