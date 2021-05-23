@@ -302,6 +302,7 @@ void* main_service(void *arg) {
         return 0;
     }
     ```
+![demo 1a](https://s3.gifyu.com/images/1ae867d96f367d1f29.gif)
 
 ### 1b
 
@@ -332,11 +333,13 @@ int main() {
 }
 ```
 
-Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan dijelaskan pada nomor [penjelasan 1c (add)](#1c) dan [penjelasan 1e (delete)](#1e)
+Untuk implementasi penambahan dan penghapusan line pada `files.tsv` akan diimplementasikan pada fungsi pada [penjelasan 1c (add)](#1c) dan [penjelasan 1e (delete)](#1e)
+
+![demo 1b](https://s3.gifyu.com/images/1b2a824e5b26db47f9.gif)
 
 ### 1c
 
-Menggunakan fungsi `addFiles()` yang juga akan mengeksekusi fungsi `_getFileName()`, `_getFilenameExt()`, `copyFile()`
+Command `add` dieksekusi menggunakan fungsi `addFiles()` yang juga akan mengeksekusi fungsi `_getFileName()`, `_getFilenameExt()`, `copyFile()`
 
 ```c
 // butuh: _getFileName(), _getFilenameExt(), copyFile()
@@ -454,8 +457,10 @@ int copyFile(char *pathIn, char *pathOut) {
 }
 ```
 
+![demo 1c](https://s3.gifyu.com/images/1c.gif)
+
 ### 1d
-Menggunakan fungsi `downloadFile()` yang didalamnya juga menggunakan `copyFile()`
+Command `download sesuatu-file` dieksekusi menggunakan fungsi `downloadFile()` yang didalamnya juga menggunakan `copyFile()`:
 ```c
 // butuh: copyFile()
 void downloadFile(char *fname, int socket) {
@@ -483,8 +488,10 @@ void downloadFile(char *fname, int socket) {
 }
 ```
 
+![demo 1d](https://s3.gifyu.com/images/1dfddd5ec10aa7b335.gif)
+
 ### 1e
-Menggunakan fungsi `deleteFile()`
+Command `delete sesuatu-file` dieksekusi menggunakan fungsi `deleteFile()`
 ```c
 // menghapus file dari server
 // butuh: _getNumberOfLine(), _isFileExists()
@@ -548,8 +555,10 @@ void deleteFile(char *fname, char* login, int socket) {
 }
 ```
 
+![demo 1e](https://s3.gifyu.com/images/1eb280d25d7decd3d8.gif)
+
 ### 1f
-Menggunakan fungsi `seeTsv()`
+Command `see` dieksekusi menggunakan fungsi `seeTsv()`:
 ```c
 // menyimpan hasil pada array tsv kemudian send ke client
 // butuh: _getNumberOfLine(),
@@ -602,8 +611,10 @@ void seeTsv(char *tsvPath, int socket) {
 }
 ```
 
+![demo 1f](https://s3.gifyu.com/images/1f95bb456230a8ed8d.gif)
+
 ### 1g
-Menggunakan fungsi `findFromTsv()`
+Command `find sesuatu-word` dieksekusi menggunakan fungsi `findFromTsv()`:
 ```c
 // menyimpan hasil pada array tsv kemudian send ke client
 // butuh: _getNumberOfLine(),
@@ -664,8 +675,10 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
 }
 ```
 
+![demo 1g](https://s3.gifyu.com/images/1g.gif)
+
 ### 1h
-Diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
+Penambahan `running.log` diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
 
 Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap fungsi pada server.
 * `client.c`:
@@ -797,6 +810,11 @@ Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap f
         }
     }
     ```
+
+Kendala:
+* Terjadi banyak error ketika ingin membaca input string dan mengambil string dari file
+* Terjadi error ketika melakukan dua kali send ke server sehingga membuat stuck pada server
+* Implementasi socket send-read antara server dan client yang banyak sehingga membingungkan
 
 ## Soal nomor 2
 Soal no 2 meminta kita untuk melakukan tugas sebagai berikut:\
