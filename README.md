@@ -92,17 +92,17 @@ dengan thread dan socket programming.
 Struktur Direktori:
 ```
 ├── Client
-│ ├── client.c
-│ ├── File2.extensi
-│ └── File1.extensi
+│   ├── client.c
+│   ├── File2.extensi
+│   └── File1.extensi
 └── Server
-├── akun.txt
-├── files.tsv
-├── server.c
-├── running.log
-└── FILES
-├── File2.extensi
-└── File1.ekstensi
+    ├── akun.txt
+    ├── files.tsv
+    ├── server.c
+    ├── running.log
+    └── FILES
+    ├── File2.extensi
+    └── File1.ekstensi
 ```
 
 ## Penjelasan penyelesaian soal
