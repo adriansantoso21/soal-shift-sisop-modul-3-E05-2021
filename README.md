@@ -678,7 +678,7 @@ void findFromTsv(char *tsvPath, char *word, int socket) {
 ![demo 1g](/soal1/1g.gif)
 
 ### 1h
-Penambahan `running.log` diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
+Update `running.log` diimplementasikan pada fungsi `addFiles()` pada [penjelasan 1c](#1c) untuk tambah, dan fungsi `deleteFile()` pada [penjelasan 1e](#1e) untuk hapus.
 
 Sedangkan pada client, saya menggunakan fungsi `command()` untuk merespon tiap fungsi pada server.
 * `client.c`:
