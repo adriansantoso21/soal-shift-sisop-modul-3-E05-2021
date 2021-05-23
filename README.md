@@ -146,7 +146,7 @@ void* main_service(void *arg) {
 }
 ```
 
-- Apabila command `register` diinputkan maka loop tersebut akan mengeksekusi fungsi `registerUser()` yang mana client akan diminta memasukkan username dan password yang kemudian akan disimpan di `akun.txt`. Jika username yang diinputkan sudah ada di `akun.txt` maka server akan mengirimkan pesan `"Username sudah ada"`, jika tidak ada maka server akan mengirimkan `"Account registered"`.
+* Apabila command `register` diinputkan maka loop tersebut akan mengeksekusi fungsi `registerUser()` yang mana client akan diminta memasukkan username dan password yang kemudian akan disimpan di `akun.txt`. Jika username yang diinputkan sudah ada di `akun.txt` maka server akan mengirimkan pesan `"Username sudah ada"`, jika tidak ada maka server akan mengirimkan `"Account registered"`.
     ```c
     void registerUser(char *path, int socket) {
         FILE *fp = fopen(path, "a+");
@@ -235,52 +235,73 @@ void* main_service(void *arg) {
     }
     ```
 
-Untuk menerima multi-connection dan membuat client kedua dc ketika client pertama masih tersambung:
-```c
-int main() {
-    
-    ...
+- Untuk menerima multi-connection dan membuat client kedua dc ketika client pertama masih tersambung:
+    ```c
+    int main() {
+        
+        ...
 
-    // membuat socket
-    struct sockaddr_in address;
-    int client_socket, addrlen;
+        // membuat socket
+        struct sockaddr_in address;
+        int client_socket, addrlen;
 
-    // menerima banyak client,
-    // akan membuat thread apabila client sudah tersambung
-    int server_fd = createServerSocket(&address, &addrlen);
-    while((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) >= 0) {
-        printf("client tersambung\n");
+        // menerima banyak client,
+        // akan membuat thread apabila client sudah tersambung
+        int server_fd = createServerSocket(&address, &addrlen);
+        while((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) >= 0) {
+            printf("client tersambung\n");
 
-        // membuat thread
-        pthread_t tid;
-        int err = pthread_create(&(tid), NULL, &main_service, (void *)&client_socket);
+            // membuat thread untuk client yg tersambung
+            pthread_t tid;
+            int err = pthread_create(&(tid), NULL, &main_service, (void *)&client_socket);
 
-        if(err != 0) printf("can't create thread : [%s]",strerror(err));
-        else printf("create thread success\n");
+            if(err != 0) printf("can't create thread : [%s]",strerror(err));
+            else printf("create thread success\n");
+        }
+
+        return 0;
     }
+    ```
+    Set `isClientExist` pada `main_service()` agar hanya 1 client yang bisa menggunakan server.
+    ```c
+    void* main_service(void *arg) {
+        int socket = *(int *)arg;
 
-    return 0;
-}
-```
-```c
-void* main_service(void *arg) {
-    int socket = *(int *)arg;
+        // cek ada client / tidak
+        // membuat server hanya menerima 1 client
+        if(isClientExist) {
+            strcpy(msg, "server_penuh");
+            send(socket, msg, strlen(msg), 0);
+            return NULL;
+        } else {
+            strcpy(msg, "server_kosong");
+            send(socket, msg, strlen(msg), 0);
+            isClientExist = true;
+        }
 
-    // cek ada client / tidak
-    // membuat server hanya menerima 1 client
-    if(isClientExist) {
-        strcpy(msg, "server_penuh");
-        send(socket, msg, strlen(msg), 0);
-        return NULL;
-    } else {
-        strcpy(msg, "server_kosong");
-        send(socket, msg, strlen(msg), 0);
-        isClientExist = true;
+        ...
     }
+    ```
+    Pada `client.c`:
+    ```c
+    int main(int argc, char const *argv[]) {
+        struct sockaddr_in address, serv_addr;
+        int client_fd = createClientSocket(&address, &serv_addr);
 
-    ...
-}
-```
+        // cek server penuh / kosong
+        memset(buffer, 0, sizeof(buffer));
+        read(client_fd, buffer, 1024);
+
+        if(strcmp(buffer, "server_penuh") == 0) {
+            printf("Mohon maaf server penuh\n");
+            return 0;
+        }
+        
+        ..
+
+        return 0;
+    }
+    ```
 
 ### 1b
 
